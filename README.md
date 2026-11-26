@@ -37,21 +37,23 @@ Target host:
    ansible-vault encrypt group_vars/arcane.yml
    ```
 
-3. Run the initial bootstrap against a fresh LXC as `root`. This installs `sudo`, creates the `arcane` user with passwordless `sudo`, syncs `/root/.ssh/authorized_keys`, hardens the host, and starts Arcane:
+3. Run the initial bootstrap against a fresh LXC as `root` using the `Makefile` (`make bootstrap` or `BOOTSTRAP=1`). This installs `sudo`, creates the `arcane` user with passwordless `sudo`, syncs `/root/.ssh/authorized_keys`, hardens the host, and starts Arcane:
 
    ```bash
-   ansible-playbook site.yml -u root --ask-vault-pass
+   make bootstrap VAULT=1
+   # Or equivalently:
+   make deploy BOOTSTRAP=1 VAULT=1
    ```
 
 > [!NOTE]
-> After the first run creates the `arcane` user and syncs SSH keys, all subsequent runs use the `arcane` user configured in `inventory/hosts.yml`.
+> `BOOTSTRAP=1` (and `make bootstrap`) connects as `root` for initial provisioning. All subsequent `make` commands default to the `arcane` user.
 
-4. Run subsequent updates as `arcane`:
+4. Run subsequent checks and deployments as `arcane` (omit `VAULT=1` if `group_vars/arcane.yml` is not encrypted):
 
    ```bash
-   ansible arcane -m ping --ask-vault-pass
-   ansible-playbook site.yml --ask-vault-pass --check --diff
-   ansible-playbook site.yml --ask-vault-pass
+   make ping VAULT=1
+   make check VAULT=1
+   make deploy VAULT=1
    ```
 
 5. Retrieve Arcane's generated initial admin password on first boot (username `arcane`):
