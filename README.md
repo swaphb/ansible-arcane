@@ -1,33 +1,12 @@
 # Self-hosted Arcane with Ansible
 
-This project deploys [Arcane](https://getarcane.app) — the GitOps and Docker
-management platform — with Ansible and Docker Compose. It is built for
-Proxmox LXC containers (with nesting enabled) and also supports standard VMs
-and bare-metal Linux hosts via a single boolean toggle (`arcane_lxc_mode`).
+## TL;DR
 
-## What the role configures
+> This repository provides an Ansible playbook and `arcane` role that provisions a non-root `arcane` administrative user (with passwordless `sudo` and synced `root` SSH keys), hardens the host with Fail2ban, unattended security updates, and dynamic UFW rules, optionally installs Docker Engine and Compose v2, and deploys [Arcane](https://getarcane.app) (`v3.1.1`) for either a Proxmox LXC container or a standard Linux VM, with optional Pangolin Newt (`1.20.1`) tunnel isolation.
 
-- Non-root administrative user (`arcane`) with passwordless `sudo`, optional
-  `docker` group membership, and SSH `authorized_keys` synced from `root`
-- Host security hardening:
-  - **Fail2ban** protecting SSH (`systemd` backend, incremental ban time,
-    UFW/nftables banaction)
-  - **Automatic security updates** via `unattended-upgrades` on Debian/Ubuntu
-  - **UFW firewall** with safe SSH pre-allow rules and dynamic user-supplied
-    rule sets (`arcane_ufw_rules`)
-- Optional Docker Engine and Docker Compose v2 bootstrap on Debian/Ubuntu
-  (`arcane_install_docker`)
-- Arcane Manager container pinned to `v3.1.1`:
-  - **LXC mode** (`arcane_lxc_mode: true`): mounts `/sys/fs/cgroup:/sys/fs/cgroup:ro`
-    per Arcane's [LXC guide](https://getarcane.app/docs/get-started/lxc-container)
-  - **Standard VM / host mode** (`arcane_lxc_mode: false`): sets `cgroup: host`
-    per Arcane's [standard installation guide](https://getarcane.app/docs/get-started/installation)
-  - Persistent encryption key auto-generated at `/opt/arcane/secrets/encryption-key`
-    (or supplied via `arcane_encryption_key`)
-  - Built-in container health check and playbook `/api/health` readiness check
-- Optional **Pangolin Newt** sidecar (`arcane_newt_enabled: true`) pinned to
-  `1.20.1`, isolating Arcane on an internal Docker bridge with zero published
-  host ports
+---
+
+An Ansible role and playbook for deploying Arcane with Docker Compose on Debian, Ubuntu, or RHEL-family Linux hosts.
 
 ## Requirements
 
@@ -38,15 +17,12 @@ Control machine:
 
 Target host:
 
-- Debian 12/13 or Ubuntu 22.04/24.04 when `arcane_install_docker: true`
-  (RHEL-family hosts are supported with `arcane_install_docker: false` and
-  Docker + Compose v2 pre-installed)
-- For Proxmox LXC: container provisioned with **Nesting** enabled
-  (`features: nesting=1`)
+- Debian 12/13 or Ubuntu 22.04/24.04 when `arcane_install_docker: true` (RHEL-family hosts require Docker Engine and the Compose v2 plugin pre-installed with `arcane_install_docker: false`)
+- For Proxmox LXC targets (`arcane_lxc_mode: true`): a container provisioned with nesting enabled (`features: nesting=1`)
 
 ## Quick start
 
-1. Copy the example inventory and group variables:
+1. Copy the example inventory and group variables, then set your host IP, `arcane_app_url`, and any firewall or Newt settings:
 
    ```bash
    cp inventory/hosts.yml.example inventory/hosts.yml
@@ -55,22 +31,22 @@ Target host:
    $EDITOR group_vars/arcane.yml
    ```
 
-2. If storing secrets (such as `arcane_newt_secret` or `arcane_encryption_key`)
-   in `group_vars/arcane.yml`, encrypt the file with Ansible Vault:
+2. If storing secrets (such as `arcane_newt_secret` or `arcane_encryption_key`) in `group_vars/arcane.yml`, encrypt the file with Ansible Vault:
 
    ```bash
    ansible-vault encrypt group_vars/arcane.yml
    ```
 
-3. Run the initial bootstrap against a fresh LXC as `root` (this creates the
-   `arcane` user, syncs `/root/.ssh/authorized_keys`, enables passwordless
-   sudo, hardens the host, and starts Arcane):
+3. Run the initial bootstrap against a fresh LXC as `root`. This installs `sudo`, creates the `arcane` user with passwordless `sudo`, syncs `/root/.ssh/authorized_keys`, hardens the host, and starts Arcane:
 
    ```bash
    ansible-playbook site.yml -u root --ask-vault-pass
    ```
 
-4. All subsequent runs can use the `arcane` user configured in `inventory/hosts.yml`:
+> [!NOTE]
+> After the first run creates the `arcane` user and syncs SSH keys, all subsequent runs use the `arcane` user configured in `inventory/hosts.yml`.
+
+4. Run subsequent updates as `arcane`:
 
    ```bash
    ansible arcane -m ping --ask-vault-pass
@@ -78,29 +54,28 @@ Target host:
    ansible-playbook site.yml --ask-vault-pass
    ```
 
-5. Retrieve Arcane's initial admin password on first boot (username `arcane`):
+5. Retrieve Arcane's generated initial admin password on first boot (username `arcane`):
 
    ```bash
    sudo docker compose -f /opt/arcane/compose.yml cp arcane:/app/data/initial-admin-password .
    ```
 
-## LXC vs standard VM mode
+## Deployment modes
 
-- **Proxmox / LXC** (`arcane_lxc_mode: true`, default): mounts
-  `/sys/fs/cgroup:/sys/fs/cgroup:ro` so Arcane can read host/container metrics
-  inside an LXC container.
-- **Standard VM / bare-metal** (`arcane_lxc_mode: false`): sets `cgroup: host`
-  on the Arcane container instead of mounting `/sys/fs/cgroup`.
+`arcane_lxc_mode` switches the generated Compose definition between Arcane's two supported host layouts:
 
-## Dynamic UFW rules
+- **LXC mode** (`arcane_lxc_mode: true`, default): mounts `/sys/fs/cgroup:/sys/fs/cgroup:ro` per Arcane's [LXC container guide](https://getarcane.app/docs/get-started/lxc-container).
+- **Standard VM or bare-metal mode** (`arcane_lxc_mode: false`): sets `cgroup: host` on the `arcane` container per Arcane's [standard installation guide](https://getarcane.app/docs/get-started/installation).
 
-UFW defaults to denying incoming and routed traffic and allowing outgoing
-traffic. SSH (`arcane_ssh_port`) is allowed before UFW is enabled so you do
-not lock yourself out. When `arcane_newt_enabled: false`, port `arcane_port`
-(`3552/tcp`) is also allowed automatically unless you set
-`arcane_ufw_allow_arcane_port: false`.
+When `arcane_encryption_key` is left empty, the role generates a 32-byte hex key on first run and persists it at `/opt/arcane/secrets/encryption-key` (`mode: 0600`). The container runs with `PUID` and `PGID` matched to the `arcane` user and waits for `/api/health` to return HTTP 200 before completing.
 
-Define additional rules dynamically using `arcane_ufw_rules`:
+## Host hardening and dynamic UFW rules
+
+- **Fail2ban** (`arcane_fail2ban_enabled: true`): configures an SSH jail using the `systemd` backend, incremental ban time, and `ufw` banaction when UFW is enabled (or `nftables-multiport` otherwise).
+- **Automatic security updates** (`arcane_unattended_upgrades_enabled: true`): installs and configures `unattended-upgrades` for Debian and Ubuntu security origins with automatic reboot disabled by default.
+- **UFW** (`arcane_ufw_enabled: true`): sets default incoming and routed policies to `deny` and outgoing to `allow`, pre-allows SSH (`arcane_ssh_port`) before enabling the firewall, and allows `arcane_port/tcp` automatically only when Newt is disabled.
+
+Supply additional firewall rules dynamically with `arcane_ufw_rules`:
 
 ```yaml
 arcane_ufw_allow_arcane_port: false
@@ -123,7 +98,7 @@ arcane_ufw_rules:
     comment: "App range from internal network"
 ```
 
-You can re-apply only firewall rules at any time with:
+Re-apply only UFW rules with:
 
 ```bash
 ansible-playbook site.yml --tags ufw
@@ -131,17 +106,9 @@ ansible-playbook site.yml --tags ufw
 
 ## Optional Pangolin Newt exposure
 
-Set `arcane_newt_enabled: true` to run a Newt sidecar alongside Arcane. In
-this mode:
+Set `arcane_newt_enabled: true` to run a Newt sidecar (`1.20.1`) alongside Arcane on an internal `arcane-newt` Docker bridge. In this mode, neither container publishes host ports, `arcane_ufw_allow_arcane_port` defaults to `false`, and Newt credentials are mounted as a root-only Compose secret (`/opt/arcane/secrets/newt-config.json`).
 
-- Arcane and Newt attach to the internal `arcane-newt` Docker bridge.
-- No host ports are published for Arcane or Newt.
-- `arcane_ufw_allow_arcane_port` automatically defaults to `false`.
-- Newt credentials are written to `/opt/arcane/secrets/newt-config.json`
-  (`mode: 0600`) and mounted as a Compose secret.
-
-Create a Newt site in Pangolin, point your Pangolin HTTP resource at
-`arcane:3552`, and set:
+Create a Newt site in Pangolin, point your Pangolin HTTP resource at `arcane:3552`, and set:
 
 ```yaml
 arcane_newt_enabled: true
@@ -152,9 +119,9 @@ arcane_newt_secret: "{{ vault_arcane_newt_secret }}"
 arcane_app_url: https://arcane.example.com
 ```
 
-## Important variables
+## Key variables
 
-| Variable | Default | Meaning |
+| Variable | Default | Purpose |
 |---|---|---|
 | `arcane_lxc_mode` | `true` | `true` for LXC (`/sys/fs/cgroup:ro`), `false` for standard VM (`cgroup: host`) |
 | `arcane_install_docker` | `true` | Install `docker.io` and `docker-compose-v2` on Debian/Ubuntu |
@@ -164,7 +131,7 @@ arcane_app_url: https://arcane.example.com
 | `arcane_base_dir` | `/opt/arcane` | Root for Compose file and secrets |
 | `arcane_projects_dir` | `/opt/docker` | Compose projects directory mounted into Arcane |
 | `arcane_encryption_key` | auto-generated | 32+ char key (persisted at `/opt/arcane/secrets/encryption-key` if omitted) |
-| `arcane_user` | `arcane` | Non-root user created with passwordless sudo and synced root SSH keys |
+| `arcane_user` | `arcane` | Non-root user created with passwordless `sudo` and synced `root` SSH keys |
 | `arcane_fail2ban_enabled` | `true` | Install and configure Fail2ban SSH jail |
 | `arcane_unattended_upgrades_enabled` | `true` | Enable automatic Debian/Ubuntu security updates |
 | `arcane_ufw_enabled` | `true` | Enable UFW with default deny incoming and dynamic `arcane_ufw_rules` |
@@ -177,11 +144,5 @@ arcane_app_url: https://arcane.example.com
 
 ## Gitea CI lifecycle automation
 
-- **`.gitea/workflows/service-updates.yml`** runs every Monday at 03:23 UTC
-  (and on manual `workflow_dispatch`). It discovers the latest stable Arcane
-  and Newt releases, updates pinned values across tracked files, validates all
-  YAML files, Ansible syntax, and supported Compose variants, pulls the pinned
-  container images, and opens or refreshes the `automation/service-updates` PR.
-- **`.gitea/workflows/release-on-main.yml`** runs when a pull request is
-  merged into `main` and publishes a sequentially versioned SemVer Gitea
-  release with categorized release notes.
+- `.gitea/workflows/service-updates.yml` runs every Monday at 03:23 UTC (and on manual `workflow_dispatch`). It checks for newer stable Arcane and Newt releases, updates pinned values across tracked files, validates YAML syntax, Ansible syntax, and rendered Compose variants, pulls the pinned images, and opens or refreshes the `automation/service-updates` pull request.
+- `.gitea/workflows/release-on-main.yml` runs when a pull request is merged into `main` and publishes a sequentially versioned SemVer Gitea release with categorized release notes.
