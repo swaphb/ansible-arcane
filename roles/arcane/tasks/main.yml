@@ -1,0 +1,73 @@
+---
+- name: Validate Arcane role configuration
+  ansible.builtin.assert:
+    that:
+      - arcane_lxc_mode is boolean
+      - arcane_install_docker is boolean
+      - arcane_version | length > 0
+      - arcane_app_url | length > 0
+      - arcane_port | int > 0
+      - arcane_port | int <= 65535
+      - arcane_ssh_port | int > 0
+      - arcane_ssh_port | int <= 65535
+      - arcane_encryption_key | length == 0 or arcane_encryption_key | length >= 32
+      - not arcane_newt_enabled or arcane_newt_pangolin_endpoint | length > 0
+      - not arcane_newt_enabled or arcane_newt_id | length > 0
+      - not arcane_newt_enabled or arcane_newt_secret | length > 0
+      - arcane_ufw_default_incoming in ['allow', 'deny', 'reject']
+      - arcane_ufw_default_outgoing in ['allow', 'deny', 'reject']
+      - arcane_ufw_default_routed in ['allow', 'deny', 'reject']
+      - arcane_ufw_logging in ['off', 'low', 'medium', 'high', 'full']
+    fail_msg: Review the required variables in group_vars/arcane.yml.example.
+  tags: [always]
+
+- name: Validate dynamic UFW rules
+  ansible.builtin.assert:
+    that:
+      - (item.rule | default('allow')) in ['allow', 'deny', 'reject', 'limit']
+      - (item.direction | default('in')) in ['in', 'out']
+      - (item.proto | default('tcp' if (item.port is defined and (item.port | string | length > 0)) else 'any')) in ['tcp', 'udp', 'any']
+    fail_msg: "Invalid UFW rule entry: {{ item }}"
+  loop: "{{ arcane_ufw_rules }}"
+  when: arcane_ufw_enabled
+  tags: [hardening, ufw]
+
+- name: Require supported OS family
+  ansible.builtin.assert:
+    that: ansible_os_family in ['Debian', 'RedHat']
+    fail_msg: This role supports Debian/Ubuntu and RHEL-family hosts.
+  tags: [always]
+
+- name: Require Debian/Ubuntu when bootstrapping Docker
+  ansible.builtin.assert:
+    that: ansible_os_family == 'Debian'
+    fail_msg: Automatic Docker installation supports Debian/Ubuntu; set arcane_install_docker=false and install Docker Engine with Compose v2 manually.
+  when: arcane_install_docker
+  tags: [docker]
+
+- name: Install base host packages
+  ansible.builtin.package:
+    name: "{{ arcane_base_packages[ansible_os_family] }}"
+    state: present
+  vars:
+    arcane_base_packages:
+      Debian: [ca-certificates, curl, gnupg, openssl, sudo]
+      RedHat: [ca-certificates, curl, gnupg2, openssl, sudo]
+  tags: [base]
+
+- name: Manage non-root administrative user
+  ansible.builtin.include_tasks: user.yml
+  when: arcane_user_manage
+  tags: [user]
+
+- name: Bootstrap Docker Engine and Compose v2
+  ansible.builtin.include_tasks: docker.yml
+  tags: [docker]
+
+- name: Configure host security hardening
+  ansible.builtin.include_tasks: hardening.yml
+  tags: [hardening]
+
+- name: Deploy Arcane stack
+  ansible.builtin.include_tasks: arcane.yml
+  tags: [arcane]

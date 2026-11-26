@@ -1,0 +1,16 @@
+{
+  "services": {
+    "arcane": {
+      "github_repository": "getarcaneapp/arcane",
+      "tag_prefix": "v",
+      "variable": "arcane_version"
+    },
+    "newt": {
+      "github_repository": "fosrl/newt",
+      "tag_prefix": "",
+      "strip_leading_v": true,
+      "discovery": "tags",
+      "variable": "arcane_newt_version"
+    }
+  }
+}

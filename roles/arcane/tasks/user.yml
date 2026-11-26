@@ -1,0 +1,72 @@
+---
+- name: Create non-root Arcane administrative user
+  ansible.builtin.user:
+    name: "{{ arcane_user }}"
+    shell: /bin/bash
+    create_home: true
+    groups: "{{ 'sudo' if ansible_os_family == 'Debian' else 'wheel' }}"
+    append: true
+    state: present
+  register: arcane_user_account
+
+- name: Configure passwordless sudo for Arcane user
+  ansible.builtin.copy:
+    content: "{{ arcane_user }} ALL=(ALL) NOPASSWD: ALL\n"
+    dest: "/etc/sudoers.d/{{ arcane_user }}"
+    owner: root
+    group: root
+    mode: "0440"
+    validate: "/usr/sbin/visudo -cf %s"
+  when: arcane_user_passwordless_sudo
+
+- name: Check root authorized_keys file
+  ansible.builtin.stat:
+    path: /root/.ssh/authorized_keys
+  register: arcane_root_authorized_keys_stat
+  when: arcane_user_sync_root_ssh_keys
+
+- name: Read root authorized_keys file
+  ansible.builtin.slurp:
+    src: /root/.ssh/authorized_keys
+  register: arcane_root_authorized_keys_raw
+  when:
+    - arcane_user_sync_root_ssh_keys
+    - arcane_root_authorized_keys_stat.stat.exists
+
+- name: Collect SSH public keys to install for Arcane user
+  ansible.builtin.set_fact:
+    arcane_user_effective_ssh_keys: >-
+      {{
+        (
+          (
+            (arcane_root_authorized_keys_raw.content | b64decode).splitlines()
+            | map('trim')
+            | reject('equalto', '')
+            | reject('match', '^#')
+            | list
+          )
+          if (arcane_user_sync_root_ssh_keys and arcane_root_authorized_keys_stat.stat.exists)
+          else []
+        )
+        + (arcane_user_extra_ssh_keys | list)
+      }}
+
+- name: Ensure SSH directory exists for Arcane user
+  ansible.builtin.file:
+    path: "{{ arcane_user_account.home }}/.ssh"
+    state: directory
+    owner: "{{ arcane_user }}"
+    group: "{{ arcane_user_account.group }}"
+    mode: "0700"
+  when: arcane_user_effective_ssh_keys | length > 0
+
+- name: Sync SSH public keys to Arcane user
+  ansible.builtin.lineinfile:
+    path: "{{ arcane_user_account.home }}/.ssh/authorized_keys"
+    line: "{{ item }}"
+    create: true
+    owner: "{{ arcane_user }}"
+    group: "{{ arcane_user_account.group }}"
+    mode: "0600"
+  loop: "{{ arcane_user_effective_ssh_keys }}"
+  when: arcane_user_effective_ssh_keys | length > 0

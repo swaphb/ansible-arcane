@@ -1,0 +1,13 @@
+[DEFAULT]
+ignoreip = {{ arcane_fail2ban_ignoreip | join(' ') }}
+bantime = {{ arcane_fail2ban_bantime }}
+bantime.increment = {{ 'true' if arcane_fail2ban_bantime_increment else 'false' }}
+findtime = {{ arcane_fail2ban_findtime }}
+maxretry = {{ arcane_fail2ban_maxretry }}
+backend = {{ arcane_fail2ban_backend }}
+banaction = {{ arcane_fail2ban_banaction }}
+
+[sshd]
+enabled = true
+port = {{ arcane_ssh_port }}
+mode = {{ arcane_fail2ban_sshd_mode }}

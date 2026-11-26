@@ -1,0 +1,85 @@
+---
+# Target environment mode:
+#   true  -> LXC container (e.g. Proxmox with nesting enabled): mounts /sys/fs/cgroup:ro
+#   false -> Standard VM / bare-metal host: sets cgroup: host
+arcane_lxc_mode: true
+
+# Optional Docker Engine + Compose v2 bootstrap (Debian/Ubuntu).
+arcane_install_docker: true
+
+# Arcane container settings.
+arcane_version: v3.1.1
+arcane_base_dir: /opt/arcane
+arcane_projects_dir: /opt/docker
+arcane_builds_dir: ""
+arcane_backups_dir: ""
+arcane_port: 3552
+arcane_bind_address: ""
+arcane_app_url: "http://{{ ansible_default_ipv4.address | default('localhost') }}:{{ arcane_port }}"
+arcane_encryption_key: ""
+arcane_database_url: ""
+arcane_puid: ""
+arcane_pgid: ""
+arcane_extra_env: {}
+
+# Non-root administrative user settings.
+arcane_user: arcane
+arcane_user_manage: true
+arcane_user_passwordless_sudo: true
+arcane_user_sync_root_ssh_keys: true
+arcane_user_extra_ssh_keys: []
+arcane_user_add_to_docker_group: true
+
+# Host security hardening.
+arcane_ssh_port: 22
+
+# Fail2ban settings.
+arcane_fail2ban_enabled: true
+arcane_fail2ban_backend: systemd
+arcane_fail2ban_banaction: "{{ 'ufw' if arcane_ufw_enabled else 'nftables-multiport' }}"
+arcane_fail2ban_bantime: 1h
+arcane_fail2ban_bantime_increment: true
+arcane_fail2ban_findtime: 10m
+arcane_fail2ban_maxretry: 5
+arcane_fail2ban_sshd_mode: aggressive
+arcane_fail2ban_ignoreip:
+  - 127.0.0.1/8
+  - ::1
+
+# Automatic security updates (Debian/Ubuntu unattended-upgrades).
+arcane_unattended_upgrades_enabled: true
+arcane_unattended_upgrades_auto_reboot: false
+arcane_unattended_upgrades_auto_reboot_time: "03:00"
+arcane_unattended_upgrades_remove_unused_dependencies: true
+arcane_unattended_upgrades_remove_unused_kernel_packages: true
+arcane_unattended_upgrades_autoclean_interval: "7"
+
+# UFW firewall settings.
+arcane_ufw_enabled: true
+arcane_ufw_default_incoming: deny
+arcane_ufw_default_outgoing: allow
+arcane_ufw_default_routed: deny
+arcane_ufw_logging: low
+arcane_ufw_allow_ssh: true
+arcane_ufw_ssh_from:
+  - any
+arcane_ufw_allow_arcane_port: "{{ not arcane_newt_enabled }}"
+# List of dynamic rule dicts:
+#   - rule: allow | deny | reject | limit (default: allow)
+#     direction: in | out (default: in)
+#     port: "3552" or "8000:8010" (optional)
+#     proto: tcp | udp | any (default: tcp if port is set, else any)
+#     from_ip: CIDR or IP (default: any)
+#     to_ip: CIDR or IP (default: any)
+#     interface: network interface (optional)
+#     comment: rule description (optional)
+arcane_ufw_rules: []
+
+# Optional Pangolin Newt sidecar. When enabled, Arcane and Newt share an
+# internal Docker bridge network and publish no ports on the host.
+arcane_newt_enabled: false
+arcane_newt_version: "1.20.1"
+arcane_newt_pangolin_endpoint: ""
+arcane_newt_id: ""
+arcane_newt_secret: ""
+arcane_newt_network_name: arcane-newt

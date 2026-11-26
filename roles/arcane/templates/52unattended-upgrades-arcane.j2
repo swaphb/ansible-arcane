@@ -1,0 +1,12 @@
+// Managed by ansible-arcane. Enables unattended security updates.
+Unattended-Upgrade::Origins-Pattern {
+        "origin=Debian,codename=${distro_codename}-security,label=Debian-Security";
+        "origin=Ubuntu,archive=${distro_codename}-security,label=Ubuntu";
+        "origin=UbuntuESMApps,archive=${distro_codename}-apps-security";
+        "origin=UbuntuESM,archive=${distro_codename}-infra-security";
+};
+
+Unattended-Upgrade::Remove-Unused-Kernel-Packages "{{ 'true' if arcane_unattended_upgrades_remove_unused_kernel_packages else 'false' }}";
+Unattended-Upgrade::Remove-Unused-Dependencies "{{ 'true' if arcane_unattended_upgrades_remove_unused_dependencies else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot "{{ 'true' if arcane_unattended_upgrades_auto_reboot else 'false' }}";
+Unattended-Upgrade::Automatic-Reboot-Time "{{ arcane_unattended_upgrades_auto_reboot_time }}";

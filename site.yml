@@ -1,0 +1,6 @@
+---
+- name: Deploy Arcane and harden target host
+  hosts: arcane
+  become: true
+  roles:
+    - arcane

@@ -1,0 +1,25 @@
+---
+- name: Install Docker Engine and Compose v2 from distribution packages
+  ansible.builtin.apt:
+    name:
+      - docker.io
+      - docker-compose-v2
+    state: present
+    update_cache: true
+    cache_valid_time: 3600
+  when: arcane_install_docker
+
+- name: Enable and start Docker service
+  ansible.builtin.service:
+    name: docker
+    state: started
+    enabled: true
+
+- name: Add Arcane user to docker group
+  ansible.builtin.user:
+    name: "{{ arcane_user }}"
+    groups: docker
+    append: true
+  when:
+    - arcane_user_manage
+    - arcane_user_add_to_docker_group

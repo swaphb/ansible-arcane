@@ -1,0 +1,78 @@
+services:
+  arcane:
+    image: ghcr.io/getarcaneapp/manager:{{ arcane_version }}
+    container_name: arcane
+    restart: unless-stopped
+{% if not arcane_newt_enabled %}
+    ports:
+      - "{{ arcane_bind_address ~ ':' if arcane_bind_address else '' }}{{ arcane_port }}:3552"
+{% else %}
+    networks:
+      - arcane-newt
+{% endif %}
+{% if not arcane_lxc_mode %}
+    cgroup: host
+{% endif %}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - arcane-data:/app/data
+      - {{ arcane_projects_dir }}:{{ arcane_projects_dir }}
+{% if arcane_lxc_mode %}
+      - /sys/fs/cgroup:/sys/fs/cgroup:ro
+{% endif %}
+{% if arcane_builds_dir | length > 0 %}
+      - {{ arcane_builds_dir }}:/builds
+{% endif %}
+{% if arcane_backups_dir | length > 0 %}
+      - {{ arcane_backups_dir }}:/backups
+{% endif %}
+    environment:
+      ARCANE_APP_URL: {{ arcane_app_url | to_json }}
+      PUID: {{ arcane_effective_puid | string | to_json }}
+      PGID: {{ arcane_effective_pgid | string | to_json }}
+      ARCANE_ENCRYPTION_KEY: {{ (arcane_effective_encryption_key | replace('$', '$$')) | to_json }}
+      ARCANE_PROJECTS_DIRECTORY: {{ arcane_projects_dir | to_json }}
+{% if arcane_database_url | length > 0 %}
+      ARCANE_DATABASE_URL: {{ (arcane_database_url | replace('$', '$$')) | to_json }}
+{% endif %}
+{% for key, value in arcane_extra_env | dictsort %}
+      {{ key }}: {{ (value | string | replace('$', '$$')) | to_json }}
+{% endfor %}
+    healthcheck:
+      test: ["CMD", "./arcane", "health", "--timeout", "2s"]
+      interval: 10s
+      timeout: 3s
+      retries: 5
+      start_period: 15s
+
+{% if arcane_newt_enabled %}
+  newt:
+    image: docker.io/fosrl/newt:{{ arcane_newt_version }}
+    container_name: arcane-newt
+    restart: unless-stopped
+    environment:
+      CONFIG_FILE: /run/secrets/newt-config
+      HEALTH_FILE: /tmp/healthy
+    secrets:
+      - newt-config
+    networks:
+      - arcane-newt
+    healthcheck:
+      test: ["CMD-SHELL", "[ -f /tmp/healthy ]"]
+      interval: 30s
+      timeout: 5s
+      start_period: 30s
+      retries: 3
+
+secrets:
+  newt-config:
+    file: ./secrets/newt-config.json
+
+networks:
+  arcane-newt:
+    name: {{ arcane_newt_network_name }}
+    driver: bridge
+{% endif %}
+
+volumes:
+  arcane-data:

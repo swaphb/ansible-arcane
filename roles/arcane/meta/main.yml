@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: arcane
+  author: local
+  description: Deploy Arcane with Docker Compose on Proxmox LXC or standard Linux hosts, with host hardening and optional Pangolin Newt integration
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions: [bookworm, trixie]
+    - name: Ubuntu
+      versions: [jammy, noble]

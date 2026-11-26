@@ -1,0 +1,180 @@
+---
+# --- Automatic security updates (Debian/Ubuntu) ---
+- name: Configure automatic security updates
+  when:
+    - arcane_unattended_upgrades_enabled
+    - ansible_os_family == 'Debian'
+  tags: [unattended-upgrades]
+  block:
+    - name: Install unattended-upgrades packages
+      ansible.builtin.apt:
+        name:
+          - unattended-upgrades
+          - apt-listchanges
+        state: present
+        update_cache: true
+        cache_valid_time: 3600
+
+    - name: Configure APT periodic auto-upgrades
+      ansible.builtin.template:
+        src: 20auto-upgrades.j2
+        dest: /etc/apt/apt.conf.d/20auto-upgrades
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Configure unattended-upgrades policy
+      ansible.builtin.template:
+        src: 52unattended-upgrades-arcane.j2
+        dest: /etc/apt/apt.conf.d/52unattended-upgrades-arcane
+        owner: root
+        group: root
+        mode: "0644"
+
+    - name: Enable unattended-upgrades service
+      ansible.builtin.service:
+        name: unattended-upgrades
+        enabled: true
+        state: started
+
+# --- UFW firewall ---
+- name: Configure UFW firewall
+  when: arcane_ufw_enabled
+  tags: [ufw]
+  block:
+    - name: Install UFW
+      ansible.builtin.package:
+        name: ufw
+        state: present
+
+    - name: Set UFW default incoming policy
+      ansible.builtin.command:
+        argv: ["ufw", "default", "{{ arcane_ufw_default_incoming }}", "incoming"]
+      register: arcane_ufw_incoming_res
+      changed_when: "'Default incoming policy changed' in (arcane_ufw_incoming_res.stdout | default(''))"
+
+    - name: Set UFW default outgoing policy
+      ansible.builtin.command:
+        argv: ["ufw", "default", "{{ arcane_ufw_default_outgoing }}", "outgoing"]
+      register: arcane_ufw_outgoing_res
+      changed_when: "'Default outgoing policy changed' in (arcane_ufw_outgoing_res.stdout | default(''))"
+
+    - name: Set UFW default routed policy
+      ansible.builtin.command:
+        argv: ["ufw", "default", "{{ arcane_ufw_default_routed }}", "routed"]
+      register: arcane_ufw_routed_res
+      changed_when: "'Default routed policy changed' in (arcane_ufw_routed_res.stdout | default(''))"
+
+    - name: Configure UFW logging level
+      ansible.builtin.command:
+        argv: ["ufw", "logging", "{{ arcane_ufw_logging }}"]
+      register: arcane_ufw_logging_res
+      changed_when: >-
+        'Logging enabled' in (arcane_ufw_logging_res.stdout | default(''))
+        or 'Logging disabled' in (arcane_ufw_logging_res.stdout | default(''))
+
+    - name: Allow SSH through UFW before enabling firewall
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - in
+          - proto
+          - tcp
+          - from
+          - "{{ item }}"
+          - to
+          - any
+          - port
+          - "{{ arcane_ssh_port | string }}"
+          - comment
+          - "SSH (managed by ansible-arcane)"
+      loop: "{{ arcane_ufw_ssh_from if (arcane_ufw_ssh_from | length > 0) else ['any'] }}"
+      register: arcane_ufw_ssh_res
+      changed_when: >-
+        'Rule added' in (arcane_ufw_ssh_res.stdout | default(''))
+        or 'Rule updated' in (arcane_ufw_ssh_res.stdout | default(''))
+      when: arcane_ufw_allow_ssh
+
+    - name: Allow Arcane UI port through UFW
+      ansible.builtin.command:
+        argv:
+          - ufw
+          - allow
+          - in
+          - proto
+          - tcp
+          - from
+          - any
+          - to
+          - any
+          - port
+          - "{{ arcane_port | string }}"
+          - comment
+          - "Arcane UI (managed by ansible-arcane)"
+      register: arcane_ufw_ui_res
+      changed_when: >-
+        'Rule added' in (arcane_ufw_ui_res.stdout | default(''))
+        or 'Rule updated' in (arcane_ufw_ui_res.stdout | default(''))
+      when: arcane_ufw_allow_arcane_port | bool
+
+    - name: Apply dynamic user-supplied UFW rules
+      ansible.builtin.command:
+        argv: >-
+          {{
+            ['ufw', item.rule | default('allow'), item.direction | default('in')]
+            + (['on', item.interface] if (item.interface is defined and item.interface | length > 0) else [])
+            + (
+                ['proto', item.proto | default('tcp' if (item.port is defined and (item.port | string | length > 0)) else 'any')]
+                if (item.proto | default('tcp' if (item.port is defined and (item.port | string | length > 0)) else 'any')) != 'any'
+                else []
+              )
+            + ['from', item.from_ip | default('any'), 'to', item.to_ip | default('any')]
+            + (['port', item.port | string] if (item.port is defined and (item.port | string | length > 0)) else [])
+            + (['comment', item.comment] if (item.comment is defined and item.comment | length > 0) else [])
+          }}
+      loop: "{{ arcane_ufw_rules }}"
+      register: arcane_ufw_dynamic_res
+      changed_when: >-
+        'Rule added' in (arcane_ufw_dynamic_res.stdout | default(''))
+        or 'Rule updated' in (arcane_ufw_dynamic_res.stdout | default(''))
+
+    - name: Check current UFW status
+      ansible.builtin.command:
+        argv: ["ufw", "status"]
+      register: arcane_ufw_status
+      changed_when: false
+
+    - name: Enable UFW firewall
+      ansible.builtin.command:
+        argv: ["ufw", "--force", "enable"]
+      when: "'Status: active' not in (arcane_ufw_status.stdout | default(''))"
+
+# --- Fail2ban ---
+- name: Configure Fail2ban
+  when: arcane_fail2ban_enabled
+  tags: [fail2ban]
+  block:
+    - name: Install Fail2ban packages
+      ansible.builtin.package:
+        name: >-
+          {{
+            ['fail2ban']
+            + (['python3-systemd'] if (ansible_os_family == 'Debian' and arcane_fail2ban_backend == 'systemd') else [])
+          }}
+        state: present
+
+    - name: Render Fail2ban SSH jail configuration
+      ansible.builtin.template:
+        src: fail2ban-sshd.local.j2
+        dest: /etc/fail2ban/jail.d/arcane-sshd.local
+        owner: root
+        group: root
+        mode: "0644"
+      notify: Restart fail2ban
+
+    - name: Enable and start Fail2ban service
+      ansible.builtin.service:
+        name: fail2ban
+        enabled: true
+        state: started

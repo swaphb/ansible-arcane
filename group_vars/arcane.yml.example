@@ -1,0 +1,84 @@
+---
+# Deployment target mode:
+#   true  -> Proxmox / LXC container (mounts /sys/fs/cgroup:ro)
+#   false -> Standard VM or bare-metal Linux host (sets cgroup: host)
+arcane_lxc_mode: true
+
+# Optional: install Docker Engine and Compose v2 on Debian/Ubuntu targets.
+arcane_install_docker: true
+
+# Keep these pins synchronized with the matching README entries. The scheduled
+# Gitea Action proposes release updates in a reviewable pull request.
+arcane_version: v3.1.1
+
+# Public or LAN URL used to reach Arcane (e.g. https://arcane.example.com or
+# http://192.168.1.120:3552).
+arcane_app_url: http://192.168.1.120:3552
+arcane_port: 3552
+arcane_base_dir: /opt/arcane
+arcane_projects_dir: /opt/docker
+
+# Optional: supply a 32+ character key (or hex:/base64: prefixed 32-byte key)
+# via ansible-vault. Leave empty to auto-generate and persist one on the target
+# at /opt/arcane/secrets/encryption-key.
+arcane_encryption_key: ""
+
+# Non-root administrative user setup.
+arcane_user: arcane
+arcane_user_manage: true
+arcane_user_passwordless_sudo: true
+arcane_user_sync_root_ssh_keys: true
+arcane_user_add_to_docker_group: true
+
+# Host hardening: fail2ban, automatic security updates, and UFW.
+arcane_ssh_port: 22
+arcane_fail2ban_enabled: true
+arcane_fail2ban_bantime: 1h
+arcane_fail2ban_findtime: 10m
+arcane_fail2ban_maxretry: 5
+arcane_fail2ban_ignoreip:
+  - 127.0.0.1/8
+  - ::1
+
+arcane_unattended_upgrades_enabled: true
+arcane_unattended_upgrades_auto_reboot: false
+arcane_unattended_upgrades_auto_reboot_time: "03:00"
+
+arcane_ufw_enabled: true
+arcane_ufw_allow_ssh: true
+# Restrict SSH to specific CIDRs (leave empty or ["any"] to allow from anywhere).
+arcane_ufw_ssh_from:
+  - any
+# Automatically allow arcane_port/tcp when Newt is disabled. Set false to manage
+# Arcane access exclusively through arcane_ufw_rules below.
+arcane_ufw_allow_arcane_port: "{{ not arcane_newt_enabled }}"
+# Dynamic user-supplied UFW rules. Supported keys per item:
+#   rule: allow | deny | reject | limit (default: allow)
+#   direction: in | out (default: in)
+#   port: "80", "443", "8000:8010" (optional)
+#   proto: tcp | udp | any (default: tcp when port is set)
+#   from_ip: CIDR or IP (default: any)
+#   to_ip: CIDR or IP (default: any)
+#   interface: network interface name (optional)
+#   comment: rule description (optional)
+arcane_ufw_rules: []
+# Example dynamic rules:
+# arcane_ufw_rules:
+#   - rule: allow
+#     port: "3552"
+#     proto: tcp
+#     from_ip: 192.168.1.0/24
+#     comment: "Arcane UI from LAN"
+#   - rule: limit
+#     port: "22"
+#     proto: tcp
+#     from_ip: 192.168.1.0/24
+#     comment: "Rate-limited SSH from LAN"
+
+# Optional: expose Arcane through an existing Pangolin server via Newt.
+# Create a Newt site in Pangolin first and copy its three values here.
+arcane_newt_enabled: false
+arcane_newt_version: "1.20.1"
+arcane_newt_pangolin_endpoint: https://pangolin.example.com
+arcane_newt_id: ""
+arcane_newt_secret: ""

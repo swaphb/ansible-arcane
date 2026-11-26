@@ -1,0 +1,6 @@
+group_vars/arcane.yml
+group_vars/arcane.yml.rendered
+*.retry
+inventory/hosts.yml
+__pycache__/
+*.pyc
