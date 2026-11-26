@@ -144,5 +144,6 @@ arcane_app_url: https://arcane.example.com
 
 ## Gitea CI lifecycle automation
 
+- `.gitea/workflows/gitleaks.yml` runs on pushes to `main`, pull requests targeting `main`, and manual `workflow_dispatch`. It scans the repository history with Gitleaks (`v8.30.1`) using `.gitleaks.toml`, which extends the default ruleset with custom checks for unencrypted `arcane_encryption_key`, `arcane_newt_secret`, and `arcane_database_url` values. For local pre-commit protection, install [pre-commit](https://pre-commit.com) and run `pre-commit install` (configured in `.pre-commit-config.yaml`).
 - `.gitea/workflows/service-updates.yml` runs every Monday at 03:23 UTC (and on manual `workflow_dispatch`). It checks for newer stable Arcane and Newt releases, updates pinned values across tracked files, validates YAML syntax, Ansible syntax, and rendered Compose variants, pulls the pinned images, and opens or refreshes the `automation/service-updates` pull request.
 - `.gitea/workflows/release-on-main.yml` runs when a pull request is merged into `main` and publishes a sequentially versioned SemVer Gitea release with categorized release notes.

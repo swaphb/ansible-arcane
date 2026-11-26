@@ -1,0 +1,50 @@
+title = "ansible-arcane gitleaks config"
+
+[extend]
+useDefault = true
+
+[[rules]]
+id = "arcane-plaintext-encryption-key"
+description = "Unencrypted arcane_encryption_key value in YAML"
+regex = '''(?i)^\s*arcane_encryption_key\s*:\s*["']?([^\s"'#]{16,})["']?'''
+path = '''\.ya?ml(\.example)?$'''
+secretGroup = 1
+keywords = ["arcane_encryption_key"]
+
+  [[rules.allowlists]]
+  regexTarget = "secret"
+  regexes = [
+    '''^\{\{''',
+    '''^!vault''',
+    '''^CHANGE_ME''',
+  ]
+
+[[rules]]
+id = "arcane-plaintext-newt-secret"
+description = "Unencrypted arcane_newt_secret value in YAML"
+regex = '''(?i)^\s*arcane_newt_secret\s*:\s*["']?([^\s"'#]{8,})["']?'''
+path = '''\.ya?ml(\.example)?$'''
+secretGroup = 1
+keywords = ["arcane_newt_secret"]
+
+  [[rules.allowlists]]
+  regexTarget = "secret"
+  regexes = [
+    '''^\{\{''',
+    '''^!vault''',
+    '''^CHANGE_ME''',
+  ]
+
+[[rules]]
+id = "arcane-plaintext-database-url"
+description = "Unencrypted arcane_database_url containing credentials in YAML"
+regex = '''(?i)^\s*arcane_database_url\s*:\s*["']?(postgres(?:ql)?://[^:\s]+:[^@\s]+@[^\s"'#]+)["']?'''
+path = '''\.ya?ml(\.example)?$'''
+secretGroup = 1
+keywords = ["arcane_database_url"]
+
+[allowlist]
+description = "Allow synthetic test fixtures used by CI validation scripts"
+paths = [
+  '''^scripts/validate-compose-variants\.py$''',
+]
