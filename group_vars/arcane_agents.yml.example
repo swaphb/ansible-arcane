@@ -1,0 +1,45 @@
+---
+# Target environment mode:
+#   false -> Standard VM or bare-metal Docker host (default)
+#   true  -> Proxmox / LXC container (sets pid: host and mounts /proc:/proc)
+arcane_agent_lxc_mode: false
+
+# Optional: install Docker Engine and Compose v2 on Debian/Ubuntu targets.
+# Keep false on existing Docker hosts.
+arcane_agent_install_docker: false
+
+# Keep these pins synchronized with the matching README entries. The scheduled
+# Gitea Action proposes release updates in a reviewable pull request.
+arcane_agent_version: v3.1.1
+arcane_agent_base_dir: /opt/arcane-agent
+
+# Transport used to connect back to Arcane Manager: auto | websocket | grpc.
+arcane_agent_transport: auto
+
+# Arcane Manager API URL reachable from the agent (over Pangolin private DNS
+# when arcane_agent_pangolin_enabled is true, or directly on LAN/WAN otherwise).
+arcane_agent_manager_api_url: https://arcane.internal
+
+# Enrollment token (arc_etkn_...) or agent API key (arc_...). Store a multi-use
+# token here (encrypted with ansible-vault) or override per host in host_vars/.
+arcane_agent_token: ""
+
+# Optional extra environment variables passed to arcane-agent.
+arcane_agent_extra_env: {}
+
+# Pangolin machine client sidecar on a dedicated Docker bridge network with DNS
+# override. Requires /dev/net/tun (on Proxmox LXC: `pct set <CTID> --dev0 /dev/net/tun`).
+arcane_agent_pangolin_enabled: true
+arcane_agent_pangolin_cli_version: "0.23.0"
+arcane_agent_network_name: arcane-agent-pangolin
+arcane_agent_pangolin_endpoint: https://pangolin.example.com
+arcane_agent_pangolin_client_id: ""
+arcane_agent_pangolin_client_secret: ""
+arcane_agent_pangolin_override_dns: true
+# Optional DNS tuning passed to pangolin-cli when non-empty:
+# arcane_agent_pangolin_upstream_dns: "1.1.1.1,9.9.9.9"
+# arcane_agent_pangolin_match_domains: "*.internal"
+# arcane_agent_pangolin_tunnel_dns: true
+arcane_agent_pangolin_upstream_dns: ""
+arcane_agent_pangolin_match_domains: ""
+arcane_agent_pangolin_tunnel_dns: false

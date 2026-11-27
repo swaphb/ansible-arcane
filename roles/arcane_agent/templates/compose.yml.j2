@@ -1,0 +1,73 @@
+services:
+{% if arcane_agent_pangolin_enabled %}
+  pangolin-client:
+    image: docker.io/fosrl/pangolin-cli:{{ arcane_agent_pangolin_cli_version }}
+    container_name: arcane-agent-pangolin
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+    command:
+      - "--override-dns={{ 'true' if arcane_agent_pangolin_override_dns else 'false' }}"
+{% if arcane_agent_pangolin_upstream_dns | string | length > 0 %}
+      - "--upstream-dns={{ arcane_agent_pangolin_upstream_dns }}"
+{% endif %}
+{% if arcane_agent_pangolin_match_domains | string | length > 0 %}
+      - "--match-domains={{ arcane_agent_pangolin_match_domains }}"
+{% endif %}
+{% if arcane_agent_pangolin_tunnel_dns %}
+      - "--tunnel-dns=true"
+{% endif %}
+    networks:
+      - arcane-agent-pangolin
+    environment:
+      PANGOLIN_ENDPOINT: {{ arcane_agent_pangolin_endpoint | to_json }}
+      CLIENT_ID: {{ arcane_agent_pangolin_client_id | to_json }}
+      CLIENT_SECRET: {{ (arcane_agent_pangolin_client_secret | replace('$', '$$')) | to_json }}
+      PANGOLIN_OVERRIDE_DNS: {{ ('true' if arcane_agent_pangolin_override_dns else 'false') | to_json }}
+{% if arcane_agent_pangolin_upstream_dns | string | length > 0 %}
+      PANGOLIN_UPSTREAM_DNS: {{ (arcane_agent_pangolin_upstream_dns | string) | to_json }}
+{% endif %}
+{% if arcane_agent_pangolin_match_domains | string | length > 0 %}
+      PANGOLIN_MATCH_DOMAINS: {{ (arcane_agent_pangolin_match_domains | string) | to_json }}
+{% endif %}
+{% if arcane_agent_pangolin_tunnel_dns %}
+      PANGOLIN_TUNNEL_DNS: "true"
+{% endif %}
+
+{% endif %}
+  arcane-agent:
+    image: ghcr.io/getarcaneapp/agent:{{ arcane_agent_version }}
+    container_name: arcane-agent
+    restart: unless-stopped
+{% if arcane_agent_pangolin_enabled %}
+    network_mode: "service:pangolin-client"
+    depends_on:
+      - pangolin-client
+{% endif %}
+{% if arcane_agent_lxc_mode %}
+    pid: host
+{% endif %}
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+      - arcane-agent-data:/app/data
+{% if arcane_agent_lxc_mode %}
+      - /proc:/proc
+{% endif %}
+    environment:
+      ARCANE_AGENT: "true"
+      ARCANE_AGENT_TRANSPORT: {{ arcane_agent_transport | to_json }}
+      ARCANE_AGENT_TOKEN: {{ (arcane_agent_token | replace('$', '$$')) | to_json }}
+      ARCANE_MANAGER_API_URL: {{ arcane_agent_manager_api_url | to_json }}
+{% for key, value in arcane_agent_extra_env | dictsort %}
+      {{ key }}: {{ (value | string | replace('$', '$$')) | to_json }}
+{% endfor %}
+
+{% if arcane_agent_pangolin_enabled %}
+networks:
+  arcane-agent-pangolin:
+    name: {{ arcane_agent_network_name }}
+    driver: bridge
+
+{% endif %}
+volumes:
+  arcane-agent-data:

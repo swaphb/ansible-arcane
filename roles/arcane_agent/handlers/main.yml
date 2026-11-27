@@ -1,0 +1,6 @@
+---
+- name: Restart Arcane Agent stack
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ arcane_agent_base_dir }}"
+  changed_when: true

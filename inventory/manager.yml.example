@@ -1,0 +1,11 @@
+---
+all:
+  children:
+    arcane_manager:
+      hosts:
+        arcane-host:
+          ansible_host: 192.168.1.120
+          # On a fresh Proxmox LXC, run the initial bootstrap with `BOOTSTRAP=1`
+          # (`-u root`). After the playbook creates the `arcane` user and syncs
+          # root's SSH keys, subsequent runs use `arcane` with passwordless sudo.
+          ansible_user: arcane

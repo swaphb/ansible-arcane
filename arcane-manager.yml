@@ -1,0 +1,6 @@
+---
+- name: Deploy Arcane Manager and harden target host
+  hosts: arcane_manager
+  become: true
+  roles:
+    - arcane

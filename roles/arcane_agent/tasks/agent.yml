@@ -1,0 +1,85 @@
+---
+- name: Check TUN device when Pangolin machine client is enabled
+  ansible.builtin.stat:
+    path: /dev/net/tun
+  register: arcane_agent_tun_device
+  when: arcane_agent_pangolin_enabled
+
+- name: Require TUN device for Pangolin machine client
+  ansible.builtin.assert:
+    that: arcane_agent_tun_device.stat.exists
+    fail_msg: >-
+      /dev/net/tun is required when arcane_agent_pangolin_enabled is true.
+      On Proxmox LXC, pass it through with: pct set <CTID> --dev0 /dev/net/tun
+  when: arcane_agent_pangolin_enabled
+
+- name: Create Arcane Remote Agent directory
+  ansible.builtin.file:
+    path: "{{ arcane_agent_base_dir }}"
+    state: directory
+    owner: root
+    group: root
+    mode: "0750"
+
+- name: Render Arcane Remote Agent Docker Compose project
+  ansible.builtin.template:
+    src: compose.yml.j2
+    dest: "{{ arcane_agent_base_dir }}/compose.yml"
+    owner: root
+    group: root
+    mode: "0600"
+  no_log: true
+  notify: Restart Arcane Agent stack
+
+- name: Start Arcane Remote Agent stack
+  ansible.builtin.command:
+    cmd: docker compose up -d --remove-orphans
+    chdir: "{{ arcane_agent_base_dir }}"
+  register: arcane_agent_compose_up
+  changed_when: "'Started' in arcane_agent_compose_up.stdout or 'Created' in arcane_agent_compose_up.stdout"
+
+- name: Flush handlers before verifying agent readiness
+  ansible.builtin.meta: flush_handlers
+
+- name: Wait for Arcane Remote Agent container to start running
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - --format
+      - "{{ '{{.State.Status}} {{.State.Restarting}} {{.State.StartedAt}}' }}"
+      - arcane-agent
+  register: arcane_agent_state_initial
+  changed_when: false
+  retries: 15
+  delay: 2
+  until: arcane_agent_state_initial.stdout is match('^running false ')
+  when: not ansible_check_mode
+
+- name: Wait briefly to verify Arcane Remote Agent stays running
+  ansible.builtin.pause:
+    seconds: 5
+  when: not ansible_check_mode
+
+- name: Confirm Arcane Remote Agent container remains running without restarting
+  ansible.builtin.command:
+    argv:
+      - docker
+      - inspect
+      - --format
+      - "{{ '{{.State.Status}} {{.State.Restarting}} {{.State.StartedAt}}' }}"
+      - arcane-agent
+  register: arcane_agent_state_final
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Assert Arcane Remote Agent container is stable
+  ansible.builtin.assert:
+    that:
+      - arcane_agent_state_final.stdout is match('^running false ')
+      - arcane_agent_state_final.stdout | trim == arcane_agent_state_initial.stdout | trim
+    fail_msg: >-
+      arcane-agent container did not remain running cleanly
+      (initial: '{{ arcane_agent_state_initial.stdout | trim }}',
+      final: '{{ arcane_agent_state_final.stdout | trim }}')
+  when: not ansible_check_mode

@@ -1,0 +1,6 @@
+---
+- name: Deploy Arcane Remote Agents
+  hosts: arcane_agents
+  become: true
+  roles:
+    - arcane_agent

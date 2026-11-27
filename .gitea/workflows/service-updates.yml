@@ -68,8 +68,9 @@ jobs:
           fi
           git config user.name "ansible-arcane update bot"
           git config user.email "actions@localhost"
-          git add automation/service-pins.json README.md group_vars/arcane.yml.example \
-            roles/arcane/defaults/main.yml flake.lock
+          git add automation/service-pins.json README.md \
+            group_vars/arcane_manager.yml.example group_vars/arcane_agents.yml.example \
+            roles/arcane/defaults/main.yml roles/arcane_agent/defaults/main.yml flake.lock
           git commit -m "chore: update pinned service versions"
           git switch --force-create automation/service-updates
           git push --force origin automation/service-updates

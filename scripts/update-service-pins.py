@@ -22,8 +22,11 @@ from pathlib import Path
 ROOT = Path(__file__).resolve().parent.parent
 CATALOG = ROOT / "automation/service-pins.json"
 DEFAULTS = ROOT / "roles/arcane/defaults/main.yml"
-EXAMPLE = ROOT / "group_vars/arcane.yml.example"
-README = ROOT / "README.md"
+DEFAULT_PIN_FILES = (
+    "roles/arcane/defaults/main.yml",
+    "group_vars/arcane_manager.yml.example",
+    "README.md",
+)
 FLAKE_LOCK = ROOT / "flake.lock"
 
 
@@ -86,9 +89,9 @@ def replace_exact(path: Path, old: str, new: str) -> None:
     path.write_text(text.replace(old, new))
 
 
-def update_pin(old: str, new: str) -> None:
-    for path in (DEFAULTS, EXAMPLE, README):
-        replace_exact(path, old, new)
+def update_pin(old: str, new: str, relative_paths: list[str] | tuple[str, ...] = DEFAULT_PIN_FILES) -> None:
+    for rel in relative_paths:
+        replace_exact(ROOT / rel, old, new)
 
 
 def locked_nixpkgs_rev() -> tuple[str, str, str, str]:
@@ -171,7 +174,7 @@ def main(argv: list[str] | None = None) -> int:
             continue
 
         if args.apply:
-            update_pin(old, latest)
+            update_pin(old, latest, service.get("files", DEFAULT_PIN_FILES))
         report["updated"][name] = {"from": old, "to": latest}
 
     update_flake_lock(args.apply, report, require_nix=args.require_nix)

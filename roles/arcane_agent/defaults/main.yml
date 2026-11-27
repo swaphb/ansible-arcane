@@ -1,0 +1,32 @@
+---
+# Target environment mode:
+#   false -> Standard VM or bare-metal Docker host (default for remote agents)
+#   true  -> Proxmox / LXC container: sets pid: host and mounts /proc:/proc
+arcane_agent_lxc_mode: false
+
+# Optional Docker Engine + Compose v2 bootstrap (Debian/Ubuntu).
+# Defaults to false because remote targets are typically existing Docker hosts.
+arcane_agent_install_docker: false
+
+# Arcane Remote Agent container settings.
+arcane_agent_version: v3.1.1
+arcane_agent_base_dir: /opt/arcane-agent
+arcane_agent_transport: auto
+arcane_agent_token: ""
+arcane_agent_manager_api_url: ""
+arcane_agent_extra_env: {}
+
+# Optional Pangolin machine client sidecar on a dedicated Docker bridge network
+# with DNS override. The agent attaches via network_mode: "service:pangolin-client"
+# so all Arcane Manager traffic traverses the WireGuard tunnel and uses
+# Pangolin's overridden DNS resolver without publishing any host ports.
+arcane_agent_pangolin_enabled: true
+arcane_agent_pangolin_cli_version: "0.23.0"
+arcane_agent_network_name: arcane-agent-pangolin
+arcane_agent_pangolin_endpoint: ""
+arcane_agent_pangolin_client_id: ""
+arcane_agent_pangolin_client_secret: ""
+arcane_agent_pangolin_override_dns: true
+arcane_agent_pangolin_upstream_dns: ""
+arcane_agent_pangolin_match_domains: ""
+arcane_agent_pangolin_tunnel_dns: false

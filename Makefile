@@ -1,16 +1,20 @@
 .DEFAULT_GOAL := help
 
-PLAYBOOK       ?= site.yml
-INVENTORY      ?= inventory/hosts.yml
-ANSIBLE_USER   ?= arcane
-BOOTSTRAP      ?= 0
-VAULT          ?= 0
-EXTRA_ARGS     ?=
+MANAGER_PLAYBOOK  ?= arcane-manager.yml
+MANAGER_INVENTORY ?= inventory/manager.yml
+AGENTS_PLAYBOOK   ?= arcane-agents.yml
+AGENTS_INVENTORY  ?= inventory/agents.yml
+ANSIBLE_USER      ?= arcane
+AGENTS_USER       ?=
+BOOTSTRAP         ?= 0
+VAULT             ?= 0
+LIMIT             ?=
+EXTRA_ARGS        ?=
 
 ifeq ($(BOOTSTRAP),1)
-EFFECTIVE_USER := root
+MANAGER_EFFECTIVE_USER := root
 else
-EFFECTIVE_USER := $(ANSIBLE_USER)
+MANAGER_EFFECTIVE_USER := $(ANSIBLE_USER)
 endif
 
 ifeq ($(VAULT),1)
@@ -19,42 +23,79 @@ else
 VAULT_FLAGS :=
 endif
 
-ANSIBLE_FLAGS := -i $(INVENTORY) -u $(EFFECTIVE_USER) $(VAULT_FLAGS) $(EXTRA_ARGS)
+ifneq ($(strip $(LIMIT)),)
+LIMIT_FLAGS := --limit $(LIMIT)
+else
+LIMIT_FLAGS :=
+endif
 
-.PHONY: help bootstrap bootstrap-user deploy check ping ufw hardening arcane validate secrets flake-check flake-update
+ifneq ($(strip $(AGENTS_USER)),)
+AGENTS_USER_FLAGS := -u $(AGENTS_USER)
+else
+AGENTS_USER_FLAGS :=
+endif
+
+MANAGER_FLAGS := -i $(MANAGER_INVENTORY) -u $(MANAGER_EFFECTIVE_USER) $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
+AGENTS_FLAGS  := -i $(AGENTS_INVENTORY) $(AGENTS_USER_FLAGS) $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
+
+.PHONY: help \
+	manager-bootstrap manager-bootstrap-user manager-deploy manager-check manager-ping manager-ufw manager-hardening manager-arcane \
+	bootstrap bootstrap-user deploy check ping ufw hardening arcane \
+	agents-deploy agents-check agents-ping \
+	validate secrets flake-check flake-update
 
 help: ## Show available targets
-	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-16s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+	@awk 'BEGIN {FS = ":.*## "} /^[a-zA-Z0-9_-]+:.*## / {printf "  %-24s %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 	@echo ""
 	@echo "Variables:"
-	@echo "  BOOTSTRAP=1      Connect as root instead of $(ANSIBLE_USER) (first-time bootstrap)"
-	@echo "  VAULT=1          Prompt for Ansible Vault password (--ask-vault-pass)"
-	@echo "  ANSIBLE_USER=... Override default SSH user (default: $(ANSIBLE_USER))"
-	@echo "  EXTRA_ARGS=...   Pass additional flags to ansible-playbook"
+	@echo "  BOOTSTRAP=1              Connect as root instead of $(ANSIBLE_USER) for manager targets"
+	@echo "  VAULT=1                  Prompt for Ansible Vault password (--ask-vault-pass)"
+	@echo "  ANSIBLE_USER=...         Override manager SSH user (default: $(ANSIBLE_USER))"
+	@echo "  AGENTS_USER=...          Override remote agent SSH user (default: inventory ansible_user)"
+	@echo "  LIMIT=...                Limit execution to specific hosts or groups (--limit)"
+	@echo "  EXTRA_ARGS=...           Pass additional flags to ansible-playbook / ansible"
 
-bootstrap: ## First-time full bootstrap as root (creates arcane user, hardens host, deploys Arcane)
-	@$(MAKE) deploy BOOTSTRAP=1 VAULT=$(VAULT) EXTRA_ARGS="$(EXTRA_ARGS)"
+manager-bootstrap: ## First-time manager bootstrap as root (user, hardening, Docker, Arcane)
+	@$(MAKE) manager-deploy BOOTSTRAP=1 VAULT=$(VAULT) LIMIT="$(LIMIT)" EXTRA_ARGS="$(EXTRA_ARGS)"
 
-bootstrap-user: ## First-time user-only bootstrap as root (creates arcane user, sudoers, and SSH keys)
-	ansible-playbook $(PLAYBOOK) -i $(INVENTORY) -u root --tags base,user $(VAULT_FLAGS) $(EXTRA_ARGS)
+manager-bootstrap-user: ## First-time manager user-only bootstrap as root (arcane user, sudoers, SSH keys)
+	ansible-playbook $(MANAGER_PLAYBOOK) -i $(MANAGER_INVENTORY) -u root --tags base,user $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
 
-deploy: ## Run full playbook (defaults to arcane user; pass BOOTSTRAP=1 to use root)
-	ansible-playbook $(PLAYBOOK) $(ANSIBLE_FLAGS)
+manager-deploy: ## Run manager playbook (defaults to arcane user; pass BOOTSTRAP=1 for root)
+	ansible-playbook $(MANAGER_PLAYBOOK) $(MANAGER_FLAGS)
 
-check: ## Dry-run playbook with diff (defaults to arcane user; pass BOOTSTRAP=1 to use root)
-	ansible-playbook $(PLAYBOOK) $(ANSIBLE_FLAGS) --check --diff
+manager-check: ## Dry-run manager playbook with diff
+	ansible-playbook $(MANAGER_PLAYBOOK) $(MANAGER_FLAGS) --check --diff
 
-ping: ## Test SSH connectivity (defaults to arcane user; pass BOOTSTRAP=1 to use root)
-	ansible arcane -m ping $(ANSIBLE_FLAGS)
+manager-ping: ## Test SSH connectivity to arcane_manager hosts
+	ansible arcane_manager -m ping $(MANAGER_FLAGS)
 
-ufw: ## Apply only UFW firewall rules
-	ansible-playbook $(PLAYBOOK) $(ANSIBLE_FLAGS) --tags ufw
+manager-ufw: ## Apply only UFW firewall rules on manager hosts
+	ansible-playbook $(MANAGER_PLAYBOOK) $(MANAGER_FLAGS) --tags ufw
 
-hardening: ## Apply only host hardening tasks (fail2ban, unattended-upgrades, ufw)
-	ansible-playbook $(PLAYBOOK) $(ANSIBLE_FLAGS) --tags hardening
+manager-hardening: ## Apply only host hardening tasks on manager hosts (fail2ban, unattended-upgrades, ufw)
+	ansible-playbook $(MANAGER_PLAYBOOK) $(MANAGER_FLAGS) --tags hardening
 
-arcane: ## Deploy or update only the Arcane and Newt stack
-	ansible-playbook $(PLAYBOOK) $(ANSIBLE_FLAGS) --tags arcane
+manager-arcane: ## Deploy or update only the Arcane Manager stack
+	ansible-playbook $(MANAGER_PLAYBOOK) $(MANAGER_FLAGS) --tags arcane
+
+bootstrap: manager-bootstrap ## Alias for manager-bootstrap
+bootstrap-user: manager-bootstrap-user ## Alias for manager-bootstrap-user
+deploy: manager-deploy ## Alias for manager-deploy
+check: manager-check ## Alias for manager-check
+ping: manager-ping ## Alias for manager-ping
+ufw: manager-ufw ## Alias for manager-ufw
+hardening: manager-hardening ## Alias for manager-hardening
+arcane: manager-arcane ## Alias for manager-arcane
+
+agents-deploy: ## Deploy or update Arcane Remote Agents on arcane_agents hosts
+	ansible-playbook $(AGENTS_PLAYBOOK) $(AGENTS_FLAGS)
+
+agents-check: ## Dry-run remote agent playbook with diff
+	ansible-playbook $(AGENTS_PLAYBOOK) $(AGENTS_FLAGS) --check --diff
+
+agents-ping: ## Test SSH connectivity to arcane_agents hosts
+	ansible arcane_agents -m ping $(AGENTS_FLAGS)
 
 validate: ## Run YAML, Ansible syntax, Compose variant, and Nix flake validation
 	python3 scripts/validate-compose-variants.py

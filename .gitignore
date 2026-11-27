@@ -1,6 +1,12 @@
 group_vars/arcane.yml
 group_vars/arcane.yml.rendered
+group_vars/arcane_manager.yml
+group_vars/arcane_manager.yml.rendered
+group_vars/arcane_agents.yml
+group_vars/arcane_agents.yml.rendered
 *.retry
 inventory/hosts.yml
+inventory/manager.yml
+inventory/agents.yml
 __pycache__/
 *.pyc

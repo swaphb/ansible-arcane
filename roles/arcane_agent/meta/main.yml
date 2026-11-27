@@ -1,0 +1,12 @@
+---
+galaxy_info:
+  role_name: arcane_agent
+  author: local
+  description: Deploy Arcane Remote Agent with Docker Compose and optional Pangolin machine client sidecar on remote Docker hosts
+  license: MIT
+  min_ansible_version: "2.15"
+  platforms:
+    - name: Debian
+      versions: [bookworm, trixie]
+    - name: Ubuntu
+      versions: [jammy, noble]

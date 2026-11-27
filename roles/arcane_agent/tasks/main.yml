@@ -1,0 +1,44 @@
+---
+- name: Validate Arcane Agent role configuration
+  ansible.builtin.assert:
+    that:
+      - arcane_agent_lxc_mode is boolean
+      - arcane_agent_install_docker is boolean
+      - arcane_agent_version | length > 0
+      - arcane_agent_base_dir | length > 0
+      - arcane_agent_transport in ['auto', 'websocket', 'grpc']
+      - arcane_agent_token | length > 0
+      - arcane_agent_manager_api_url | length > 0
+      - arcane_agent_pangolin_enabled is boolean
+      - arcane_agent_pangolin_override_dns is boolean
+      - arcane_agent_pangolin_tunnel_dns is boolean
+      - not arcane_agent_pangolin_enabled or arcane_agent_pangolin_cli_version | length > 0
+      - not arcane_agent_pangolin_enabled or arcane_agent_network_name | length > 0
+      - not arcane_agent_pangolin_enabled or arcane_agent_pangolin_endpoint | length > 0
+      - not arcane_agent_pangolin_enabled or arcane_agent_pangolin_client_id | length > 0
+      - not arcane_agent_pangolin_enabled or arcane_agent_pangolin_client_secret | length > 0
+    fail_msg: Review the required variables in group_vars/arcane_agents.yml.example.
+  tags: [always]
+
+- name: Require supported OS family
+  ansible.builtin.assert:
+    that: ansible_os_family in ['Debian', 'RedHat']
+    fail_msg: This role supports Debian/Ubuntu and RHEL-family hosts.
+  tags: [always]
+
+- name: Require Debian/Ubuntu when bootstrapping Docker
+  ansible.builtin.assert:
+    that:
+      - ansible_os_family == 'Debian'
+      - ansible_distribution in ['Debian', 'Ubuntu']
+    fail_msg: Automatic Docker installation supports Debian/Ubuntu; set arcane_agent_install_docker=false and install Docker Engine with Compose v2 manually.
+  when: arcane_agent_install_docker
+  tags: [docker]
+
+- name: Ensure Docker Engine and Compose v2 are available
+  ansible.builtin.include_tasks: docker.yml
+  tags: [docker]
+
+- name: Deploy Arcane Remote Agent stack
+  ansible.builtin.include_tasks: agent.yml
+  tags: [agent]

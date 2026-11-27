@@ -1,0 +1,15 @@
+---
+all:
+  children:
+    arcane_agents:
+      hosts:
+        docker-host-1:
+          ansible_host: 192.168.1.130
+          ansible_user: ubuntu
+          # Optional per-host overrides (for example single-use enrollment tokens
+          # or LXC mode on specific hosts):
+          # arcane_agent_token: "{{ vault_docker_host_1_agent_token }}"
+          # arcane_agent_lxc_mode: true
+        docker-host-2:
+          ansible_host: 192.168.1.131
+          ansible_user: debian

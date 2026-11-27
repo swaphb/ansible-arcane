@@ -201,5 +201,41 @@ class TestWorkflowHardening(unittest.TestCase):
         self.assertIn("scripts/test-ci-guards.py", text)
 
 
+class TestRoleRegressionGuards(unittest.TestCase):
+    DOCKER_TASK_FILES = (
+        ROOT / "roles/arcane/tasks/docker.yml",
+        ROOT / "roles/arcane_agent/tasks/docker.yml",
+    )
+
+    def test_docker_bootstrap_uses_official_apt_repo_and_verifies_compose_v2(self) -> None:
+        for path in self.DOCKER_TASK_FILES:
+            text = path.read_text()
+            with self.subTest(path=str(path.relative_to(ROOT))):
+                self.assertNotIn("docker-compose-v2", text)
+                self.assertIn("https://download.docker.com/linux/{{ ansible_distribution | lower }}", text)
+                self.assertIn("/etc/apt/keyrings/docker.asc", text)
+                self.assertIn("docker-compose-plugin", text)
+                self.assertIn("docker-ce", text)
+                self.assertIn("compose", text)
+                self.assertIn("version", text)
+
+    def test_agent_readiness_does_not_depend_on_unsupported_healthcheck(self) -> None:
+        agent_tasks = (ROOT / "roles/arcane_agent/tasks/agent.yml").read_text()
+        agent_compose = (ROOT / "roles/arcane_agent/templates/compose.yml.j2").read_text()
+        self.assertNotIn("State.Health.Status", agent_tasks)
+        self.assertIn("State.Status", agent_tasks)
+        self.assertIn("State.Restarting", agent_tasks)
+        self.assertNotIn("healthcheck:", agent_compose)
+
+    def test_validate_service_images_covers_agent_smoke_and_debian_releases(self) -> None:
+        module = load_script_module(
+            "validate_service_images",
+            SCRIPTS_DIR / "validate-service-images.py",
+        )
+        self.assertEqual(module.DEBIAN_BOOTSTRAP_RELEASES, ("bookworm", "trixie"))
+        self.assertTrue(callable(module.smoke_test_agent_image))
+        self.assertTrue(callable(module.smoke_test_debian_docker_bootstrap))
+
+
 if __name__ == "__main__":
     unittest.main()

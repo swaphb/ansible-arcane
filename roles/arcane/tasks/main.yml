@@ -21,7 +21,7 @@
       - arcane_ufw_default_outgoing in ['allow', 'deny', 'reject']
       - arcane_ufw_default_routed in ['allow', 'deny', 'reject']
       - arcane_ufw_logging in ['off', 'low', 'medium', 'high', 'full']
-    fail_msg: Review the required variables in group_vars/arcane.yml.example.
+    fail_msg: Review the required variables in group_vars/arcane_manager.yml.example.
   tags: [always]
 
 - name: Validate dynamic UFW rules
@@ -43,7 +43,9 @@
 
 - name: Require Debian/Ubuntu when bootstrapping Docker
   ansible.builtin.assert:
-    that: ansible_os_family == 'Debian'
+    that:
+      - ansible_os_family == 'Debian'
+      - ansible_distribution in ['Debian', 'Ubuntu']
     fail_msg: Automatic Docker installation supports Debian/Ubuntu; set arcane_install_docker=false and install Docker Engine with Compose v2 manually.
   when: arcane_install_docker
   tags: [docker]

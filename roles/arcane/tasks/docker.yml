@@ -1,12 +1,65 @@
 ---
-- name: Install Docker Engine and Compose v2 from distribution packages
+- name: Install prerequisites for Docker official APT repository
   ansible.builtin.apt:
     name:
-      - docker.io
-      - docker-compose-v2
+      - ca-certificates
+      - curl
     state: present
     update_cache: true
     cache_valid_time: 3600
+  when: arcane_install_docker
+
+- name: Detect Debian/Ubuntu package architecture for Docker APT repository
+  ansible.builtin.command:
+    argv:
+      - dpkg
+      - --print-architecture
+  register: arcane_dpkg_arch
+  changed_when: false
+  check_mode: false
+  when: arcane_install_docker
+
+- name: Ensure APT keyrings directory exists
+  ansible.builtin.file:
+    path: /etc/apt/keyrings
+    state: directory
+    owner: root
+    group: root
+    mode: "0755"
+  when: arcane_install_docker
+
+- name: Download Docker official APT signing key
+  ansible.builtin.get_url:
+    url: "https://download.docker.com/linux/{{ ansible_distribution | lower }}/gpg"
+    dest: /etc/apt/keyrings/docker.asc
+    owner: root
+    group: root
+    mode: "0644"
+  when: arcane_install_docker
+
+- name: Configure Docker official APT repository
+  ansible.builtin.copy:
+    dest: /etc/apt/sources.list.d/docker.list
+    content: >
+      deb [arch={{ arcane_dpkg_arch.stdout | trim }} signed-by=/etc/apt/keyrings/docker.asc]
+      https://download.docker.com/linux/{{ ansible_distribution | lower }}
+      {{ ansible_distribution_release }} stable
+    owner: root
+    group: root
+    mode: "0644"
+  register: arcane_docker_repo
+  when: arcane_install_docker
+
+- name: Install Docker Engine and Compose v2 plugin from official Docker repository
+  ansible.builtin.apt:
+    name:
+      - docker-ce
+      - docker-ce-cli
+      - containerd.io
+      - docker-buildx-plugin
+      - docker-compose-plugin
+    state: present
+    update_cache: true
   when: arcane_install_docker
 
 - name: Enable and start Docker service
@@ -14,6 +67,24 @@
     name: docker
     state: started
     enabled: true
+
+- name: Verify Docker Compose v2 CLI plugin is available
+  ansible.builtin.command:
+    argv:
+      - docker
+      - compose
+      - version
+  register: arcane_docker_compose_version
+  changed_when: false
+  when: not ansible_check_mode
+
+- name: Require Docker Compose v2 or newer CLI plugin
+  ansible.builtin.assert:
+    that: arcane_docker_compose_version.stdout is search('version v([2-9]|[1-9][0-9])\\.')
+    fail_msg: >-
+      Docker Compose v2+ CLI plugin is required; got:
+      {{ arcane_docker_compose_version.stdout | trim }}
+  when: not ansible_check_mode
 
 - name: Add Arcane user to docker group
   ansible.builtin.user:
