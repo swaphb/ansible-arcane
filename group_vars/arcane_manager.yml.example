@@ -9,7 +9,7 @@ arcane_install_docker: true
 
 # Keep these pins synchronized with the matching README entries. The scheduled
 # Gitea Action proposes release updates in a reviewable pull request.
-arcane_version: v3.1.1
+arcane_version: v3.2.0
 
 # Public or LAN URL used to reach Arcane (e.g. https://arcane.example.com or
 # http://192.168.1.120:3552).

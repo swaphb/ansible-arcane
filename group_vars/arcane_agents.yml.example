@@ -10,7 +10,7 @@ arcane_agent_install_docker: false
 
 # Keep these pins synchronized with the matching README entries. The scheduled
 # Gitea Action proposes release updates in a reviewable pull request.
-arcane_agent_version: v3.1.1
+arcane_agent_version: v3.2.0
 arcane_agent_base_dir: /opt/arcane-agent
 
 # Transport used to connect back to Arcane Manager: auto | websocket | grpc.

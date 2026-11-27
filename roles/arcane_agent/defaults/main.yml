@@ -9,7 +9,7 @@ arcane_agent_lxc_mode: false
 arcane_agent_install_docker: false
 
 # Arcane Remote Agent container settings.
-arcane_agent_version: v3.1.1
+arcane_agent_version: v3.2.0
 arcane_agent_base_dir: /opt/arcane-agent
 arcane_agent_transport: auto
 arcane_agent_token: ""

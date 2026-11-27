@@ -2,7 +2,7 @@
 
 ## TL;DR
 
-> This repository provides two separate Ansible playbooks and roles with zero external Galaxy dependencies: `arcane-manager.yml` (`roles/arcane`) provisions a non-root `arcane` user, hardens the host with Fail2ban, unattended security updates, and dynamic UFW rules, optionally installs Docker, and deploys [Arcane Manager](https://getarcane.app) (`v3.1.1`) with optional Pangolin Newt (`1.20.1`) and machine client (`0.23.0`) sidecars; `arcane-agents.yml` (`roles/arcane_agent`) bootstraps remote Docker hosts with Arcane Remote Agents (`v3.1.1`) routed through a Pangolin CLI sidecar (`0.23.0`) with DNS override and no published host ports.
+> This repository provides two separate Ansible playbooks and roles with zero external Galaxy dependencies: `arcane-manager.yml` (`roles/arcane`) provisions a non-root `arcane` user, hardens the host with Fail2ban, unattended security updates, and dynamic UFW rules, optionally installs Docker, and deploys [Arcane Manager](https://getarcane.app) (`v3.2.0`) with optional Pangolin Newt (`1.20.1`) and machine client (`0.23.0`) sidecars; `arcane-agents.yml` (`roles/arcane_agent`) bootstraps remote Docker hosts with Arcane Remote Agents (`v3.2.0`) routed through a Pangolin CLI sidecar (`0.23.0`) with DNS override and no published host ports.
 
 ---
 
@@ -173,7 +173,7 @@ arcane_pangolin_client_secret: "{{ vault_arcane_pangolin_client_secret }}"
 |---|---|---|
 | `arcane_lxc_mode` | `true` | `true` for LXC (`/sys/fs/cgroup:ro`), `false` for standard VM (`cgroup: host`) |
 | `arcane_install_docker` | `true` | Install Docker Engine and the Compose v2 plugin from Docker's official APT repository on Debian/Ubuntu |
-| `arcane_version` | `v3.1.1` | Pinned `ghcr.io/getarcaneapp/manager` image tag |
+| `arcane_version` | `v3.2.0` | Pinned `ghcr.io/getarcaneapp/manager` image tag |
 | `arcane_app_url` | `http://<host-ip>:3552` | Public or LAN URL for Arcane |
 | `arcane_port` | `3552` | Host port in direct mode |
 | `arcane_base_dir` | `/opt/arcane` | Root for Compose file and secrets |
@@ -201,7 +201,7 @@ arcane_pangolin_client_secret: "{{ vault_arcane_pangolin_client_secret }}"
 |---|---|---|
 | `arcane_agent_lxc_mode` | `false` | `true` for Proxmox LXC (`pid: host` and `/proc:/proc`), `false` for VM or bare-metal |
 | `arcane_agent_install_docker` | `false` | Install Docker Engine and the Compose v2 plugin from Docker's official APT repository on Debian/Ubuntu |
-| `arcane_agent_version` | `v3.1.1` | Pinned `ghcr.io/getarcaneapp/agent` image tag |
+| `arcane_agent_version` | `v3.2.0` | Pinned `ghcr.io/getarcaneapp/agent` image tag |
 | `arcane_agent_base_dir` | `/opt/arcane-agent` | Root directory for the agent Compose file |
 | `arcane_agent_transport` | `auto` | Manager connection transport (`auto`, `websocket`, or `grpc`) |
 | `arcane_agent_token` | `""` | Enrollment token (`arc_etkn_...`) or agent API key (`arc_...`) |

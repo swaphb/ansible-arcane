@@ -8,7 +8,7 @@ arcane_lxc_mode: true
 arcane_install_docker: true
 
 # Arcane container settings.
-arcane_version: v3.1.1
+arcane_version: v3.2.0
 arcane_base_dir: /opt/arcane
 arcane_projects_dir: /opt/docker
 arcane_builds_dir: ""
