@@ -22,18 +22,32 @@ jobs:
       - name: Install validation dependencies
         run: |
           apt-get update
-          apt-get install --yes --no-install-recommends docker.io python3-venv
+          apt-get install --yes --no-install-recommends curl docker.io python3-venv xz-utils
           python3 -m venv /tmp/ansible-arcane-validation
           /tmp/ansible-arcane-validation/bin/pip install --disable-pip-version-check \
             ansible-core==2.19.0 Jinja2==3.1.6 PyYAML==6.0.2
 
+      - name: Ensure Nix is available
+        run: |
+          if ! command -v nix >/dev/null 2>&1; then
+            mkdir -m 0755 -p /nix /etc/nix
+            printf 'experimental-features = nix-command flakes\nsandbox = false\nfilter-syscalls = false\nbuild-users-group =\n' > /etc/nix/nix.conf
+            curl -fsSL https://nixos.org/nix/install -o /tmp/nix-install.sh
+            test -s /tmp/nix-install.sh
+            USER=root sh /tmp/nix-install.sh --no-daemon --yes
+            rm -f /tmp/nix-install.sh
+            echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+            echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+          fi
+          PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH" nix --version
+
       - name: Discover and apply compatible stable releases
         run: |
           /tmp/ansible-arcane-validation/bin/python scripts/update-service-pins.py \
-            --apply --report /tmp/service-update-report.json
+            --apply --require-nix --report /tmp/service-update-report.json
 
-      - name: Validate rendered deployment configurations
-        run: /tmp/ansible-arcane-validation/bin/python scripts/validate-compose-variants.py
+      - name: Validate rendered deployment configurations and Nix flake
+        run: /tmp/ansible-arcane-validation/bin/python scripts/validate-compose-variants.py --require-nix
 
       - name: Validate pinned container images
         run: /tmp/ansible-arcane-validation/bin/python scripts/validate-service-images.py
@@ -55,7 +69,7 @@ jobs:
           git config user.name "ansible-arcane update bot"
           git config user.email "actions@localhost"
           git add automation/service-pins.json README.md group_vars/arcane.yml.example \
-            roles/arcane/defaults/main.yml
+            roles/arcane/defaults/main.yml flake.lock
           git commit -m "chore: update pinned service versions"
           git switch --force-create automation/service-updates
           git push --force origin automation/service-updates

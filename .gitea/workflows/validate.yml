@@ -1,0 +1,48 @@
+name: Validate
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Install validation dependencies
+        run: |
+          apt-get update
+          apt-get install --yes --no-install-recommends curl python3-venv xz-utils
+          python3 -m venv /tmp/ansible-arcane-validation
+          /tmp/ansible-arcane-validation/bin/pip install --disable-pip-version-check \
+            ansible-core==2.19.0 Jinja2==3.1.6 PyYAML==6.0.2
+
+      - name: Ensure Nix is available
+        run: |
+          if ! command -v nix >/dev/null 2>&1; then
+            mkdir -m 0755 -p /nix /etc/nix
+            printf 'experimental-features = nix-command flakes\nsandbox = false\nfilter-syscalls = false\nbuild-users-group =\n' > /etc/nix/nix.conf
+            curl -fsSL https://nixos.org/nix/install -o /tmp/nix-install.sh
+            test -s /tmp/nix-install.sh
+            USER=root sh /tmp/nix-install.sh --no-daemon --yes
+            rm -f /tmp/nix-install.sh
+            echo "$HOME/.nix-profile/bin" >> "$GITHUB_PATH"
+            echo "/nix/var/nix/profiles/default/bin" >> "$GITHUB_PATH"
+          fi
+          PATH="$HOME/.nix-profile/bin:/nix/var/nix/profiles/default/bin:$PATH" nix --version
+
+      - name: Run CI guard regression tests
+        run: /tmp/ansible-arcane-validation/bin/python scripts/test-ci-guards.py
+
+      - name: Validate YAML, Ansible syntax, Compose variants, and Nix flake
+        run: /tmp/ansible-arcane-validation/bin/python scripts/validate-compose-variants.py --require-nix

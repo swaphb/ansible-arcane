@@ -1,8 +1,9 @@
 #!/usr/bin/env python3
-"""Render and validate supported Arcane Compose configurations."""
+"""Render and validate supported Arcane Compose configurations and Nix flake."""
 
 from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
@@ -87,7 +88,38 @@ def validate_variant(name: str, values: dict[str, object]) -> None:
         )
 
 
-def main() -> int:
+def validate_flake(require_nix: bool = False) -> None:
+    flake_nix = ROOT / "flake.nix"
+    flake_lock = ROOT / "flake.lock"
+    require(flake_nix.exists(), "flake.nix is missing")
+    require(flake_lock.exists(), "flake.lock is missing")
+
+    lock = json.loads(flake_lock.read_text())
+    nixpkgs = lock.get("nodes", {}).get("nixpkgs", {}).get("locked", {})
+    require(bool(nixpkgs.get("rev")), "flake.lock is missing nixpkgs locked rev")
+    require(bool(nixpkgs.get("narHash")), "flake.lock is missing nixpkgs locked narHash")
+
+    nix = shutil.which("nix")
+    if not nix:
+        if require_nix:
+            raise RuntimeError("nix is required for flake validation")
+        return
+    subprocess.run(
+        [nix, "--extra-experimental-features", "nix-command flakes", "flake", "check", "--no-build", "--all-systems"],
+        cwd=ROOT,
+        check=True,
+    )
+
+
+def main(argv: list[str] | None = None) -> int:
+    parser = argparse.ArgumentParser(description=__doc__)
+    parser.add_argument(
+        "--require-nix",
+        action="store_true",
+        help="fail if nix is not available for flake validation",
+    )
+    args = parser.parse_args(argv)
+
     yaml_files = sorted(
         path for path in ROOT.rglob("*")
         if path.suffix in {".yml", ".yaml"}
@@ -127,13 +159,14 @@ def main() -> int:
     }
     for name, values in variants.items():
         validate_variant(name, values)
-    print(f"validated {len(variants)} Compose variants and {len(yaml_files)} YAML files")
+    validate_flake(require_nix=args.require_nix)
+    print(f"validated {len(variants)} Compose variants, {len(yaml_files)} YAML files, and Nix flake")
     return 0
 
 
 if __name__ == "__main__":
     try:
         raise SystemExit(main())
-    except (RuntimeError, subprocess.CalledProcessError, yaml.YAMLError) as error:
+    except (RuntimeError, subprocess.CalledProcessError, yaml.YAMLError, json.JSONDecodeError) as error:
         print(f"error: {error}", file=sys.stderr)
         raise SystemExit(1)
