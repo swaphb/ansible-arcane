@@ -14,6 +14,9 @@
       - not arcane_newt_enabled or arcane_newt_pangolin_endpoint | length > 0
       - not arcane_newt_enabled or arcane_newt_id | length > 0
       - not arcane_newt_enabled or arcane_newt_secret | length > 0
+      - not arcane_pangolin_client_enabled or arcane_pangolin_client_endpoint | length > 0
+      - not arcane_pangolin_client_enabled or arcane_pangolin_client_id | length > 0
+      - not arcane_pangolin_client_enabled or arcane_pangolin_client_secret | length > 0
       - arcane_ufw_default_incoming in ['allow', 'deny', 'reject']
       - arcane_ufw_default_outgoing in ['allow', 'deny', 'reject']
       - arcane_ufw_default_routed in ['allow', 'deny', 'reject']

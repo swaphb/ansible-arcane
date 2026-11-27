@@ -106,7 +106,7 @@ Re-apply only UFW rules with:
 ansible-playbook site.yml --tags ufw
 ```
 
-## Optional Pangolin Newt exposure
+## Optional Pangolin Newt exposure and private resource access
 
 Set `arcane_newt_enabled: true` to run a Newt sidecar (`1.20.1`) alongside Arcane on an internal `arcane-newt` Docker bridge. In this mode, neither container publishes host ports, `arcane_ufw_allow_arcane_port` defaults to `false`, and Newt credentials are mounted as a root-only Compose secret (`/opt/arcane/secrets/newt-config.json`).
 
@@ -120,6 +120,19 @@ arcane_newt_id: site-id-from-pangolin
 arcane_newt_secret: "{{ vault_arcane_newt_secret }}"
 arcane_app_url: https://arcane.example.com
 ```
+
+To let Arcane reach remote Pangolin private resources (such as remote Docker sockets or Arcane agents over zero-trust tunnels), enable the Pangolin machine client sidecar (`fosrl/pangolin-cli` pinned to `0.23.0`). Arcane attaches via `network_mode: "service:pangolin-client"` so it shares the WireGuard tunnel and private DNS directly without using host networking or publishing host ports (when Newt is enabled, `pangolin-client` joins `arcane-newt` with the `arcane` network alias so Newt still targets `arcane:3552`):
+
+```yaml
+arcane_pangolin_client_enabled: true
+arcane_pangolin_cli_version: "0.23.0"
+arcane_pangolin_client_endpoint: https://pangolin.example.com
+arcane_pangolin_client_id: machine-client-id-from-pangolin
+arcane_pangolin_client_secret: "{{ vault_arcane_pangolin_client_secret }}"
+```
+
+> [!IMPORTANT]
+> The Pangolin machine client requires `/dev/net/tun` inside the target host. On Proxmox LXC, pass the device through from the Proxmox host with `pct set <CTID> --dev0 /dev/net/tun`.
 
 ## Key variables
 
@@ -143,6 +156,11 @@ arcane_app_url: https://arcane.example.com
 | `arcane_newt_pangolin_endpoint` | `""` | Pangolin server URL |
 | `arcane_newt_id` | `""` | Pangolin Newt site ID |
 | `arcane_newt_secret` | `""` | Pangolin Newt site secret |
+| `arcane_pangolin_client_enabled` | `false` | Run a Pangolin machine client sidecar so Arcane can reach private resources |
+| `arcane_pangolin_cli_version` | `0.23.0` | Pinned `docker.io/fosrl/pangolin-cli` image tag |
+| `arcane_pangolin_client_endpoint` | `arcane_newt_pangolin_endpoint` | Pangolin server URL for the machine client |
+| `arcane_pangolin_client_id` | `""` | Pangolin machine client ID |
+| `arcane_pangolin_client_secret` | `""` | Pangolin machine client secret |
 
 ## Gitea CI lifecycle automation
 

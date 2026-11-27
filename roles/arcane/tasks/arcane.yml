@@ -1,4 +1,18 @@
 ---
+- name: Check TUN device when Pangolin machine client is enabled
+  ansible.builtin.stat:
+    path: /dev/net/tun
+  register: arcane_tun_device
+  when: arcane_pangolin_client_enabled
+
+- name: Require TUN device for Pangolin machine client
+  ansible.builtin.assert:
+    that: arcane_tun_device.stat.exists
+    fail_msg: >-
+      /dev/net/tun is required when arcane_pangolin_client_enabled is true.
+      On Proxmox LXC, pass it through with: pct set <CTID> --dev0 /dev/net/tun
+  when: arcane_pangolin_client_enabled
+
 - name: Look up Arcane user account for PUID/PGID
   ansible.builtin.getent:
     database: passwd
@@ -114,7 +128,7 @@
       - inspect
       - --format
       - "{{ '{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}}' }}"
-      - arcane
+      - "{{ 'arcane-pangolin-client' if arcane_pangolin_client_enabled else 'arcane' }}"
   register: arcane_container_address
   changed_when: false
   when: arcane_newt_enabled

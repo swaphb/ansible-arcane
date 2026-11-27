@@ -36,6 +36,22 @@ keywords = ["arcane_newt_secret"]
   ]
 
 [[rules]]
+id = "arcane-plaintext-pangolin-client-secret"
+description = "Unencrypted arcane_pangolin_client_secret value in YAML"
+regex = '''(?i)^\s*arcane_pangolin_client_secret\s*:\s*["']?([^\s"'#]{8,})["']?'''
+path = '''\.ya?ml(\.example)?$'''
+secretGroup = 1
+keywords = ["arcane_pangolin_client_secret"]
+
+  [[rules.allowlists]]
+  regexTarget = "secret"
+  regexes = [
+    '''^\{\{''',
+    '''^!vault''',
+    '''^CHANGE_ME''',
+  ]
+
+[[rules]]
 id = "arcane-plaintext-database-url"
 description = "Unencrypted arcane_database_url containing credentials in YAML"
 regex = '''(?i)^\s*arcane_database_url\s*:\s*["']?(postgres(?:ql)?://[^:\s]+:[^@\s]+@[^\s"'#]+)["']?'''

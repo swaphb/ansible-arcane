@@ -82,3 +82,12 @@ arcane_newt_version: "1.20.1"
 arcane_newt_pangolin_endpoint: https://pangolin.example.com
 arcane_newt_id: ""
 arcane_newt_secret: ""
+
+# Optional: give Arcane zero-trust access to Pangolin private resources
+# (for example remote Docker sockets or remote Arcane agents). Requires
+# /dev/net/tun (on Proxmox LXC: `pct set <CTID> --dev0 /dev/net/tun`).
+arcane_pangolin_client_enabled: false
+arcane_pangolin_cli_version: "0.23.0"
+arcane_pangolin_client_endpoint: "{{ arcane_newt_pangolin_endpoint }}"
+arcane_pangolin_client_id: ""
+arcane_pangolin_client_secret: ""

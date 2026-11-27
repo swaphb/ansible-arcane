@@ -1,9 +1,35 @@
 services:
+{% if arcane_pangolin_client_enabled %}
+  pangolin-client:
+    image: docker.io/fosrl/pangolin-cli:{{ arcane_pangolin_cli_version }}
+    container_name: arcane-pangolin-client
+    restart: unless-stopped
+    cap_add: [NET_ADMIN]
+    devices: ["/dev/net/tun:/dev/net/tun"]
+{% if not arcane_newt_enabled %}
+    ports:
+      - "{{ arcane_bind_address ~ ':' if arcane_bind_address else '' }}{{ arcane_port }}:3552"
+{% else %}
+    networks:
+      arcane-newt:
+        aliases:
+          - arcane
+{% endif %}
+    environment:
+      PANGOLIN_ENDPOINT: {{ arcane_pangolin_client_endpoint | to_json }}
+      CLIENT_ID: {{ arcane_pangolin_client_id | to_json }}
+      CLIENT_SECRET: {{ (arcane_pangolin_client_secret | replace('$', '$$')) | to_json }}
+
+{% endif %}
   arcane:
     image: ghcr.io/getarcaneapp/manager:{{ arcane_version }}
     container_name: arcane
     restart: unless-stopped
-{% if not arcane_newt_enabled %}
+{% if arcane_pangolin_client_enabled %}
+    network_mode: "service:pangolin-client"
+    depends_on:
+      - pangolin-client
+{% elif not arcane_newt_enabled %}
     ports:
       - "{{ arcane_bind_address ~ ':' if arcane_bind_address else '' }}{{ arcane_port }}:3552"
 {% else %}

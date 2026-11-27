@@ -28,6 +28,7 @@ def render(values: dict[str, object]) -> dict[str, object]:
         "arcane_effective_pgid": "1000",
         "arcane_effective_encryption_key": "0123456789abcdef0123456789abcdef0123456789abcdef0123456789abcdef",
         "arcane_newt_secret": "validation-newt-secret",
+        "arcane_pangolin_client_secret": "validation-pangolin-client-secret",
     })
     environment = Environment(
         loader=FileSystemLoader(str(ROOT / "roles/arcane/templates")),
@@ -50,6 +51,7 @@ def validate_variant(name: str, values: dict[str, object]) -> None:
     services = compose.get("services", {})
     is_lxc = bool(values.get("arcane_lxc_mode", True))
     is_newt = bool(values.get("arcane_newt_enabled", False))
+    is_pangolin_client = bool(values.get("arcane_pangolin_client_enabled", False))
 
     require("arcane" in services, f"{name}: Arcane service is missing")
     arcane = services["arcane"]
@@ -68,13 +70,36 @@ def validate_variant(name: str, values: dict[str, object]) -> None:
             f"{name}: VM mode must not mount /sys/fs/cgroup:ro",
         )
 
+    if is_pangolin_client:
+        require("pangolin-client" in services, f"{name}: pangolin-client service is missing")
+        client = services["pangolin-client"]
+        require("NET_ADMIN" in client.get("cap_add", []), f"{name}: pangolin-client needs NET_ADMIN")
+        require("/dev/net/tun:/dev/net/tun" in client.get("devices", []), f"{name}: pangolin-client needs /dev/net/tun")
+        require(
+            arcane.get("network_mode") == "service:pangolin-client",
+            f"{name}: Arcane must share pangolin-client network namespace",
+        )
+        require("ports" not in arcane, f"{name}: Arcane must not define ports with service network_mode")
+        require("networks" not in arcane, f"{name}: Arcane must not define networks with service network_mode")
+        if is_newt:
+            require("ports" not in client, f"{name}: Newt mode must not publish pangolin-client ports")
+            aliases = client.get("networks", {}).get("arcane-newt", {}).get("aliases", [])
+            require("arcane" in aliases, f"{name}: pangolin-client must alias arcane on arcane-newt")
+        else:
+            require("ports" in client, f"{name}: direct mode must publish Arcane port on pangolin-client")
+    else:
+        require("pangolin-client" not in services, f"{name}: unexpected pangolin-client service")
+        if is_newt:
+            require("ports" not in arcane, f"{name}: Newt mode must not publish Arcane ports")
+        else:
+            require("ports" in arcane, f"{name}: direct mode must publish Arcane port")
+
     if is_newt:
-        require("ports" not in arcane, f"{name}: Newt mode must not publish Arcane ports")
         require("newt" in services, f"{name}: Newt service is missing")
+        require("ports" not in services["newt"], f"{name}: Newt must not publish ports")
         require("arcane-newt" in compose.get("networks", {}), f"{name}: arcane-newt network is missing")
         require("newt-config" in compose.get("secrets", {}), f"{name}: newt-config secret is missing")
     else:
-        require("ports" in arcane, f"{name}: direct mode must publish Arcane port")
         require("newt" not in services, f"{name}: direct mode must not include Newt service")
 
     if values.get("arcane_builds_dir"):
@@ -144,10 +169,17 @@ def main(argv: list[str] | None = None) -> int:
         "arcane_newt_pangolin_endpoint": "https://pangolin.example.test",
         "arcane_newt_id": "validation-site",
     }
+    common_pangolin_client = {
+        "arcane_pangolin_client_enabled": True,
+        "arcane_pangolin_client_endpoint": "https://pangolin.example.test",
+        "arcane_pangolin_client_id": "validation-machine-client",
+    }
     variants = {
         "lxc-direct": {"arcane_lxc_mode": True},
         "lxc-newt": {"arcane_lxc_mode": True, **common_newt},
+        "lxc-newt-pangolin-client": {"arcane_lxc_mode": True, **common_newt, **common_pangolin_client},
         "vm-direct": {"arcane_lxc_mode": False},
+        "vm-direct-pangolin-client": {"arcane_lxc_mode": False, **common_pangolin_client},
         "vm-newt": {"arcane_lxc_mode": False, **common_newt},
         "lxc-full-options": {
             "arcane_lxc_mode": True,

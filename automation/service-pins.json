@@ -11,6 +11,13 @@
       "strip_leading_v": true,
       "discovery": "tags",
       "variable": "arcane_newt_version"
+    },
+    "pangolin_cli": {
+      "github_repository": "fosrl/cli",
+      "tag_prefix": "",
+      "strip_leading_v": true,
+      "discovery": "tags",
+      "variable": "arcane_pangolin_cli_version"
     }
   }
 }

@@ -34,6 +34,7 @@ def main() -> int:
     images = (
         f"ghcr.io/getarcaneapp/manager:{value('arcane_version')}",
         f"docker.io/fosrl/newt:{value('arcane_newt_version')}",
+        f"docker.io/fosrl/pangolin-cli:{value('arcane_pangolin_cli_version')}",
     )
     for image in images:
         run("docker", "pull", image)

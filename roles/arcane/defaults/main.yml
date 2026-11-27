@@ -83,3 +83,13 @@ arcane_newt_pangolin_endpoint: ""
 arcane_newt_id: ""
 arcane_newt_secret: ""
 arcane_newt_network_name: arcane-newt
+
+# Optional Pangolin machine client sidecar for zero-trust access to Pangolin
+# private resources (for example remote Docker sockets or Arcane agents).
+# Arcane shares the pangolin-client network namespace so it can reach private
+# resources directly over the WireGuard tunnel without host networking.
+arcane_pangolin_client_enabled: false
+arcane_pangolin_cli_version: "0.23.0"
+arcane_pangolin_client_endpoint: "{{ arcane_newt_pangolin_endpoint }}"
+arcane_pangolin_client_id: ""
+arcane_pangolin_client_secret: ""
