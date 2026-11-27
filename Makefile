@@ -35,7 +35,7 @@ else
 AGENTS_USER_FLAGS :=
 endif
 
-MANAGER_FLAGS := -i $(MANAGER_INVENTORY) -u $(MANAGER_EFFECTIVE_USER) $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
+MANAGER_FLAGS := -i $(MANAGER_INVENTORY) -u $(MANAGER_EFFECTIVE_USER) -e ansible_user=$(MANAGER_EFFECTIVE_USER) $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
 AGENTS_FLAGS  := -i $(AGENTS_INVENTORY) $(AGENTS_USER_FLAGS) $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
 
 .PHONY: help \
@@ -59,7 +59,7 @@ manager-bootstrap: ## First-time manager bootstrap as root (user, hardening, Doc
 	@$(MAKE) manager-deploy BOOTSTRAP=1 VAULT=$(VAULT) LIMIT="$(LIMIT)" EXTRA_ARGS="$(EXTRA_ARGS)"
 
 manager-bootstrap-user: ## First-time manager user-only bootstrap as root (arcane user, sudoers, SSH keys)
-	ansible-playbook $(MANAGER_PLAYBOOK) -i $(MANAGER_INVENTORY) -u root --tags base,user $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
+	ansible-playbook $(MANAGER_PLAYBOOK) -i $(MANAGER_INVENTORY) -u root -e ansible_user=root --tags base,user $(VAULT_FLAGS) $(LIMIT_FLAGS) $(EXTRA_ARGS)
 
 manager-deploy: ## Run manager playbook (defaults to arcane user; pass BOOTSTRAP=1 for root)
 	ansible-playbook $(MANAGER_PLAYBOOK) $(MANAGER_FLAGS)
